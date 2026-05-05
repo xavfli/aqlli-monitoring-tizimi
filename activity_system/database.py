@@ -15,6 +15,20 @@ MEMORY_CAMERA_SETTINGS: dict = {
     "camera_source": "",
     "notes": "",
 }
+MEMORY_UNIVERSITY_DB_SETTINGS: dict = {
+    "id": 1,
+    "db_type": "sqlite",
+    "host": "",
+    "port": "",
+    "database_name": "",
+    "username": "",
+    "password": "",
+    "student_table": "students",
+    "student_id_column": "student_id",
+    "student_name_column": "full_name",
+    "group_column": "group_name",
+    "notes": "",
+}
 
 
 def get_connection() -> sqlite3.Connection:
@@ -101,6 +115,38 @@ def init_db() -> None:
                 notes
             )
             VALUES (1, 'E 102 xona', -1, '', '')
+                """
+            )
+            conn.execute(
+                """
+            CREATE TABLE IF NOT EXISTS university_db_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                db_type TEXT NOT NULL DEFAULT 'sqlite',
+                host TEXT NOT NULL DEFAULT '',
+                port TEXT NOT NULL DEFAULT '',
+                database_name TEXT NOT NULL DEFAULT '',
+                username TEXT NOT NULL DEFAULT '',
+                password TEXT NOT NULL DEFAULT '',
+                student_table TEXT NOT NULL DEFAULT 'students',
+                student_id_column TEXT NOT NULL DEFAULT 'student_id',
+                student_name_column TEXT NOT NULL DEFAULT 'full_name',
+                group_column TEXT NOT NULL DEFAULT 'group_name',
+                notes TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+                """
+            )
+            conn.execute(
+                """
+            INSERT OR IGNORE INTO university_db_settings (
+                id,
+                db_type,
+                student_table,
+                student_id_column,
+                student_name_column,
+                group_column
+            )
+            VALUES (1, 'sqlite', 'students', 'student_id', 'full_name', 'group_name')
                 """
             )
     except sqlite3.Error:
@@ -413,6 +459,102 @@ def save_camera_settings(
             (room_name, camera_index, camera_source, notes),
         )
     return fetch_camera_settings()
+
+
+def fetch_university_db_settings() -> dict:
+    if USE_MEMORY_DB:
+        return dict(MEMORY_UNIVERSITY_DB_SETTINGS)
+
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM university_db_settings
+            WHERE id = 1
+            """
+        ).fetchone()
+    return dict(row) if row else dict(MEMORY_UNIVERSITY_DB_SETTINGS)
+
+
+def save_university_db_settings(settings: dict) -> dict:
+    db_type = (settings.get("db_type") or "sqlite").strip()
+    host = (settings.get("host") or "").strip()
+    port = str(settings.get("port") or "").strip()
+    database_name = (settings.get("database_name") or "").strip()
+    username = (settings.get("username") or "").strip()
+    password = (settings.get("password") or "").strip()
+    student_table = (settings.get("student_table") or "students").strip()
+    student_id_column = (settings.get("student_id_column") or "student_id").strip()
+    student_name_column = (settings.get("student_name_column") or "full_name").strip()
+    group_column = (settings.get("group_column") or "group_name").strip()
+    notes = (settings.get("notes") or "").strip()
+
+    payload = {
+        "id": 1,
+        "db_type": db_type,
+        "host": host,
+        "port": port,
+        "database_name": database_name,
+        "username": username,
+        "password": password,
+        "student_table": student_table,
+        "student_id_column": student_id_column,
+        "student_name_column": student_name_column,
+        "group_column": group_column,
+        "notes": notes,
+    }
+    if USE_MEMORY_DB:
+        MEMORY_UNIVERSITY_DB_SETTINGS.update(payload)
+        return dict(MEMORY_UNIVERSITY_DB_SETTINGS)
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO university_db_settings (
+                id,
+                db_type,
+                host,
+                port,
+                database_name,
+                username,
+                password,
+                student_table,
+                student_id_column,
+                student_name_column,
+                group_column,
+                notes,
+                updated_at
+            )
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                db_type=excluded.db_type,
+                host=excluded.host,
+                port=excluded.port,
+                database_name=excluded.database_name,
+                username=excluded.username,
+                password=excluded.password,
+                student_table=excluded.student_table,
+                student_id_column=excluded.student_id_column,
+                student_name_column=excluded.student_name_column,
+                group_column=excluded.group_column,
+                notes=excluded.notes,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                db_type,
+                host,
+                port,
+                database_name,
+                username,
+                password,
+                student_table,
+                student_id_column,
+                student_name_column,
+                group_column,
+                notes,
+            ),
+        )
+    return fetch_university_db_settings()
 
 
 def export_sessions_csv() -> Path:

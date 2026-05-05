@@ -313,7 +313,10 @@ if (addStudentBtn) {
         if (data.ok) {
             document.getElementById("newStudentName").value = "";
             document.getElementById("newStudentGroup").value = "";
-            document.getElementById("assignStudentName").value = studentName;
+            const assignStudentName = document.getElementById("assignStudentName");
+            if (assignStudentName) {
+                assignStudentName.value = studentName;
+            }
         }
     });
 }
@@ -352,6 +355,32 @@ if (defaultCameraPreset) {
         document.getElementById("adminCameraSource").value = preset.source || "";
         document.getElementById("adminCameraNotes").value = preset.notes || "";
         setMessage("Default kamera tanlandi. Saqlash uchun pastdagi tugmani bosing.");
+    });
+}
+
+const saveUniversityDbBtn = document.getElementById("saveUniversityDbBtn");
+if (saveUniversityDbBtn) {
+    saveUniversityDbBtn.addEventListener("click", async () => {
+        const payload = {
+            db_type: document.getElementById("universityDbType").value,
+            host: document.getElementById("universityDbHost").value.trim(),
+            port: document.getElementById("universityDbPort").value.trim(),
+            database_name: document.getElementById("universityDbName").value.trim(),
+            username: document.getElementById("universityDbUsername").value.trim(),
+            password: document.getElementById("universityDbPassword").value.trim(),
+            student_table: document.getElementById("universityStudentTable").value.trim(),
+            student_id_column: document.getElementById("universityStudentIdColumn").value.trim(),
+            student_name_column: document.getElementById("universityStudentNameColumn").value.trim(),
+            group_column: document.getElementById("universityGroupColumn").value.trim(),
+            notes: document.getElementById("universityDbNotes").value.trim(),
+        };
+        if (!payload.student_table || !payload.student_name_column) {
+            setMessage("Talabalar jadvali va F.I.Sh. ustunini kiriting", true);
+            return;
+        }
+        setMessage("Universitet bazasi sozlamalari saqlanmoqda...");
+        const data = await postJson("/api/admin/university-db", payload);
+        setMessage(data.message, !data.ok);
     });
 }
 

@@ -11,8 +11,10 @@ from .database import (
     fetch_student_latest_results,
     fetch_student_roster,
     fetch_summary,
+    fetch_university_db_settings,
     init_db,
     save_camera_settings,
+    save_university_db_settings,
 )
 from .monitor import ActivityMonitor
 
@@ -60,6 +62,7 @@ def create_app() -> Flask:
         return render_template(
             "admin.html",
             camera_settings=fetch_camera_settings(),
+            university_db_settings=fetch_university_db_settings(),
             student_roster=fetch_student_roster(),
             status=monitor.get_status(),
         )
@@ -154,6 +157,24 @@ def create_app() -> Flask:
                 "ok": True,
                 "message": "Kamera sozlamalari saqlandi",
                 "camera_settings": settings,
+            }
+        )
+
+    @app.post("/api/admin/university-db")
+    def admin_university_db_settings():
+        if not session.get("admin_logged_in"):
+            return jsonify({"ok": False, "message": "Avval admin sifatida kiring"}), 401
+        payload = request.get_json(silent=True) or {}
+        if not (payload.get("student_table") or "").strip():
+            return jsonify({"ok": False, "message": "Talabalar jadvali nomini kiriting"}), 400
+        if not (payload.get("student_name_column") or "").strip():
+            return jsonify({"ok": False, "message": "Talaba F.I.Sh. ustunini kiriting"}), 400
+        settings = save_university_db_settings(payload)
+        return jsonify(
+            {
+                "ok": True,
+                "message": "Universitet bazasi sozlamalari saqlandi",
+                "university_db_settings": settings,
             }
         )
 

@@ -91,6 +91,95 @@
         </section>
 
         <section class="admin-grid">
+            <article class="panel admin-panel">
+                <div class="panel-head">
+                    <h2>Universitet bazasini ulash</h2>
+                    <span class="badge badge-idle">Talabalar manbasi</span>
+                </div>
+                <div class="assign-box admin-form">
+                    <label class="field">
+                        <span>Baza turi</span>
+                        <select id="universityDbType">
+                            <option value="sqlite" {% if university_db_settings.db_type == "sqlite" %}selected{% endif %}>SQLite</option>
+                            <option value="mysql" {% if university_db_settings.db_type == "mysql" %}selected{% endif %}>MySQL</option>
+                            <option value="postgresql" {% if university_db_settings.db_type == "postgresql" %}selected{% endif %}>PostgreSQL</option>
+                            <option value="mssql" {% if university_db_settings.db_type == "mssql" %}selected{% endif %}>MS SQL Server</option>
+                        </select>
+                    </label>
+                    <div class="form-grid-2">
+                        <label class="field">
+                            <span>Host/IP</span>
+                            <input id="universityDbHost" type="text" value="{{ university_db_settings.host }}" placeholder="192.168.1.10">
+                        </label>
+                        <label class="field">
+                            <span>Port</span>
+                            <input id="universityDbPort" type="text" value="{{ university_db_settings.port }}" placeholder="3306">
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span>Database nomi yoki SQLite fayl yo'li</span>
+                        <input id="universityDbName" type="text" value="{{ university_db_settings.database_name }}" placeholder="university">
+                    </label>
+                    <div class="form-grid-2">
+                        <label class="field">
+                            <span>Username</span>
+                            <input id="universityDbUsername" type="text" value="{{ university_db_settings.username }}" placeholder="db_user">
+                        </label>
+                        <label class="field">
+                            <span>Password</span>
+                            <input id="universityDbPassword" type="password" value="{{ university_db_settings.password }}" placeholder="********">
+                        </label>
+                    </div>
+                    <div class="form-grid-2">
+                        <label class="field">
+                            <span>Talabalar jadvali</span>
+                            <input id="universityStudentTable" type="text" value="{{ university_db_settings.student_table }}" placeholder="students">
+                        </label>
+                        <label class="field">
+                            <span>Student ID ustuni</span>
+                            <input id="universityStudentIdColumn" type="text" value="{{ university_db_settings.student_id_column }}" placeholder="student_id">
+                        </label>
+                    </div>
+                    <div class="form-grid-2">
+                        <label class="field">
+                            <span>Talaba F.I.Sh. ustuni</span>
+                            <input id="universityStudentNameColumn" type="text" value="{{ university_db_settings.student_name_column }}" placeholder="full_name">
+                        </label>
+                        <label class="field">
+                            <span>Guruh ustuni</span>
+                            <input id="universityGroupColumn" type="text" value="{{ university_db_settings.group_column }}" placeholder="group_name">
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span>Izoh</span>
+                        <textarea id="universityDbNotes" placeholder="Masalan: universitet asosiy talabalar bazasi">{{ university_db_settings.notes }}</textarea>
+                    </label>
+                    <button id="saveUniversityDbBtn" class="btn btn-primary">Universitet bazasini saqlash</button>
+                </div>
+            </article>
+
+            <aside class="panel guide-panel">
+                <div class="panel-head">
+                    <h2>Baza ulash yo'riqnomasi</h2>
+                </div>
+                <div class="guide-list">
+                    <div class="guide-item">
+                        <strong>1. Baza turini tanlang</strong>
+                        <p>Universitetda qaysi tizim ishlatilsa, shu turni tanlang: <code>MySQL</code>, <code>PostgreSQL</code>, <code>MS SQL</code> yoki <code>SQLite</code>.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>2. Jadval va ustunlarni yozing</strong>
+                        <p>Masalan: jadval <code>students</code>, F.I.Sh. ustuni <code>full_name</code>, guruh ustuni <code>group_name</code>.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>3. Saqlang</strong>
+                        <p>Bu bo'lim ulanish ma'lumotlarini saqlaydi. Haqiqiy import uchun keyingi bosqichda shu sozlama orqali universitet bazasidan talabalar olinadi.</p>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="admin-grid">
             <article class="panel roster-panel">
                 <div class="panel-head">
                     <h2>Universitet talabalar bazasi</h2>
