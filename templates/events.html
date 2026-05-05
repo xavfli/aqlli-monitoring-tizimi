@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hodisa Kuzatuvi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="topbar">
+            <a class="brand-link" href="{{ url_for('events_page') }}">Hodisa kuzatuvi</a>
+            <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('index') }}">Bosh sahifa</a>
+                <a class="btn btn-small" href="{{ url_for('admin_page') }}">Admin</a>
+            </nav>
+        </header>
+
+        <section class="hero compact-hero">
+            <div class="hero-copy">
+                <p class="eyebrow">Jonli monitoring markazi</p>
+                <div class="hero-title-block">
+                    <h1>Hodisa kuzatuvi</h1>
+                    <div class="hero-accent-line"></div>
+                </div>
+                <p class="lead">
+                    Bu sahifa jonli video oqim, faollik ballari, talaba tracklari, sessiyalar va ehtimoliy
+                    hodisalarni bir joyda kuzatadi. Boshqaruv faqat shu yerda ishlaydi.
+                </p>
+                <div class="hero-actions">
+                    <button id="startBtn" class="btn btn-primary">Monitoringni boshlash</button>
+                    <button id="stopBtn" class="btn btn-secondary">To'xtatish va saqlash</button>
+                    <button id="resetBtn" class="btn btn-ghost">Statistikani tozalash</button>
+                </div>
+                <input id="cameraIndex" type="hidden" value="{{ camera_settings.camera_index }}">
+                <input id="cameraSource" type="hidden" value="{{ camera_settings.camera_source }}">
+                <span id="sessionName" data-value="{{ camera_settings.room_name or 'E 102 xona' }}" hidden>{{ camera_settings.room_name or 'E 102 xona' }}</span>
+            </div>
+            <div class="hero-side">
+                <div class="panel-head">
+                    <h2>Jonli holat</h2>
+                    <span id="statusBadge" class="badge {% if status.running %}badge-live{% else %}badge-idle{% endif %}">
+                        {% if status.running %}Monitoring faol{% else %}Tizim kutish holatida{% endif %}
+                    </span>
+                </div>
+                <div id="messageBox" class="message-box">Tizim ishga tayyor.</div>
+                <div class="tech-stack">
+                    <div>
+                        <span>Faol manba</span>
+                        <strong id="activeSource">{{ status.active_source_label }}</strong>
+                    </div>
+                    <div>
+                        <span>Tinglovchilar</span>
+                        <strong id="detectedFaces">{{ status.max_detected_faces or 0 }}</strong>
+                    </div>
+                </div>
+                <div class="tech-stack">
+                    <div>
+                        <span>Xatolik</span>
+                        <strong id="lastError">{{ status.last_error or "Yo'q" }}</strong>
+                    </div>
+                    <div>
+                        <span>Joriy ball</span>
+                        <strong id="heroCurrentScore">{{ status.average_score }}</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-grid">
+            <article class="panel video-panel">
+                <div class="panel-head">
+                    <h2>Jonli video oqim</h2>
+                    <span class="badge badge-live">Kamera nazorati</span>
+                </div>
+                <div class="video-wrap">
+                    <div class="scanline"></div>
+                    <div class="video-frame-decor frame-top"></div>
+                    <div class="video-frame-decor frame-bottom"></div>
+                    <img id="videoFeed" src="{{ url_for('video_frame') }}" alt="Jonli kamera oqimi">
+                </div>
+                <div class="caption">Kamera admin panelda saqlangan manba orqali ulanadi.</div>
+            </article>
+
+            <article class="panel metrics-panel">
+                <div class="panel-head">
+                    <h2>Joriy monitoring</h2>
+                </div>
+                <div class="metric-cards">
+                    <div class="metric-card">
+                        <span>Joriy ball</span>
+                        <strong id="currentScore">{{ status.average_score }}</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Mavjudlik</span>
+                        <strong id="presenceRatio">{{ status.presence_ratio }}%</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Diqqat</span>
+                        <strong id="attentionRatio">{{ status.attention_ratio }}%</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Harakat</span>
+                        <strong id="movementRatio">{{ status.movement_ratio }}%</strong>
+                    </div>
+                </div>
+                <div class="facts">
+                    <div><span>Kadrlar:</span> <strong id="totalFrames">{{ status.total_frames }}</strong></div>
+                    <div><span>Yuz aniqlangan:</span> <strong id="faceFrames">{{ status.face_frames }}</strong></div>
+                    <div><span>O'rtacha tinglovchi:</span> <strong id="avgFaces">{{ status.average_detected_faces or 0 }}</strong></div>
+                    <div><span>Maksimal ball:</span> <strong id="maxScore">{{ status.max_score }}</strong></div>
+                </div>
+            </article>
+        </section>
+
+        <section class="event-section">
+            <article class="panel event-panel">
+                <div class="panel-head">
+                    <h2>Hodisa indikatorlari</h2>
+                    <span class="badge badge-live">Jonli hisoblagich</span>
+                </div>
+                <p class="event-lead">
+                    Bu ko'rsatkichlar video oqimdagi ehtimoliy signallarni sanaydi. Ular yakuniy hukm emas,
+                    o'qituvchiga e'tibor berish kerak bo'lgan holatlarni ko'rsatadi.
+                </p>
+                <div class="metric-cards event-cards">
+                    <div class="metric-card">
+                        <span>Telefon ehtimoli</span>
+                        <strong id="phoneSuspects">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Savol/qo'l ishorasi</span>
+                        <strong id="questionGestures">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Uyquchanlik ehtimoli</span>
+                        <strong id="drowsySuspects">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Chalg'ish holati</span>
+                        <strong id="lookingAway">0</strong>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="management-grid">
+            <article class="panel participant-panel">
+                <div class="panel-head">
+                    <h2>Anonim treklar</h2>
+                </div>
+                <div class="assign-box">
+                    <label class="field">
+                        <span>Track</span>
+                        <input id="assignParticipantId" type="text" placeholder="Tinglovchi 1">
+                    </label>
+                    <label class="field">
+                        <span>Talabani bazadan tanlang</span>
+                        <select id="assignStudentName">
+                            <option value="">Universitet bazasidan tanlang</option>
+                            {% for student in student_roster %}
+                            <option value="{{ student.student_name }}">{{ student.student_name }}{% if student.group_name %} - {{ student.group_name }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <button id="assignBtn" class="btn btn-small">Trackni talaba bilan bog'lash</button>
+                </div>
+                <div id="participantList" class="participant-list">
+                    <div class="participant-empty">Hozircha anonim trek statistikasi yo'q.</div>
+                </div>
+            </article>
+
+            <article class="panel student-results-panel">
+                <div class="panel-head">
+                    <h2>Talabalar oxirgi ballari</h2>
+                </div>
+                <div id="studentResults" class="participant-list">
+                    {% for student in student_results %}
+                    <div class="participant-card">
+                        <div class="participant-title">{{ student.student_name }}</div>
+                        <div class="participant-meta">Oxirgi ball: <strong>{{ student.average_score }}</strong></div>
+                        <div class="participant-meta">Maksimal ball: <strong>{{ student.max_score }}</strong></div>
+                        <div class="participant-meta">Mavjudlik: <strong>{{ student.presence_ratio }}%</strong></div>
+                    </div>
+                    {% else %}
+                    <div class="participant-empty">Hozircha talabalar bo'yicha oxirgi ball saqlanmagan.</div>
+                    {% endfor %}
+                </div>
+            </article>
+        </section>
+
+        <section class="dashboard-grid session-grid">
+            <article class="panel table-panel">
+                <div class="panel-head">
+                    <h2>Saqlangan sessiyalar</h2>
+                    <a class="btn btn-small" href="{{ url_for('export_csv') }}">CSV eksport</a>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nomi</th>
+                                <th>Boshlanish</th>
+                                <th>Tugash</th>
+                                <th>Mavjudlik</th>
+                                <th>O'rtacha ball</th>
+                                <th>Maksimal ball</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessionTable">
+                            {% for session in sessions %}
+                            <tr>
+                                <td>{{ session.id }}</td>
+                                <td>{{ session.session_name }}</td>
+                                <td>{{ session.started_at }}</td>
+                                <td>{{ session.ended_at }}</td>
+                                <td>{{ session.presence_ratio }}%</td>
+                                <td>{{ session.average_score }}</td>
+                                <td>{{ session.max_score }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7">Hozircha sessiyalar mavjud emas.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+
+data/*.db
+data/*.db-journal
+*.db
+*.db-journal
+exports/*.csv
+
+.env
+instance/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

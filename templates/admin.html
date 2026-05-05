@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Kamera sozlamalari</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <div class="page-shell">
+        <header class="topbar">
+            <a class="brand-link" href="{{ url_for('index') }}">Admin panel</a>
+            <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('index') }}">Bosh sahifa</a>
+                <a class="btn btn-small" href="{{ url_for('events_page') }}">Hodisa sahifasi</a>
+                <a class="btn btn-small" href="{{ url_for('admin_logout') }}">Chiqish</a>
+            </nav>
+        </header>
+
+        <section class="admin-grid">
+            <article class="panel admin-panel">
+                <div class="panel-head">
+                    <h2>Universitet kamerasi</h2>
+                    <span class="badge badge-idle">Saqlanadigan sozlama</span>
+                </div>
+                <div class="assign-box admin-form">
+                    <label class="field">
+                        <span>Default kamera tanlash</span>
+                        <select id="defaultCameraPreset">
+                            <option value="">Qo'lda kiritish</option>
+                            <option value='{"room":"Kompyuter kamerasi","index":0,"source":"","notes":"Noutbuk yoki USB webcam"}'>Webcam 0</option>
+                            <option value='{"room":"Kompyuter kamerasi 2","index":1,"source":"","notes":"Ikkinchi USB webcam yoki virtual kamera"}'>Webcam 1</option>
+                            <option value='{"room":"Kompyuter kamerasi 3","index":2,"source":"","notes":"Uchinchi kamera indeksi"}'>Webcam 2</option>
+                            <option value='{"room":"E 102 xona","index":-1,"source":"rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov","notes":"Ochiq RTSP test oqimi. Universitet kamerasi o'rniga ulanishni tekshirish uchun."}'>Ochiq RTSP test</option>
+                            <option value='{"room":"E 102 xona","index":-1,"source":"https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8","notes":"Ochiq HLS test oqimi. OpenCV muhitiga qarab ishlashi mumkin."}'>Ochiq HLS test</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Xona nomi</span>
+                        <input id="adminRoomName" type="text" value="{{ camera_settings.room_name or 'E 102 xona' }}" placeholder="E 102 xona">
+                    </label>
+                    <label class="field">
+                        <span>Kamera indeksi</span>
+                        <input id="adminCameraIndex" type="number" value="{{ camera_settings.camera_index }}" min="-1">
+                    </label>
+                    <label class="field">
+                        <span>RTSP yoki IP kamera manzili</span>
+                        <input id="adminCameraSource" type="text" value="{{ camera_settings.camera_source }}" placeholder="rtsp://user:parol@192.168.1.25:554/stream1">
+                    </label>
+                    <label class="field">
+                        <span>Izoh</span>
+                        <textarea id="adminCameraNotes" placeholder="Masalan: E 102, doskaga qaragan IP kamera">{{ camera_settings.notes }}</textarea>
+                    </label>
+                    <button id="saveCameraBtn" class="btn btn-primary">Kamerani saqlash</button>
+                    <div id="messageBox" class="message-box">Admin sozlamalari tayyor.</div>
+                </div>
+            </article>
+
+            <aside class="panel guide-panel">
+                <div class="panel-head">
+                    <h2>Yo'riqnoma</h2>
+                </div>
+                <div class="guide-list">
+                    <div class="guide-item">
+                        <strong>1. Kamerani tarmoqqa ulang</strong>
+                        <p>Universitet IP kamerasi kompyuter bilan bir xil lokal tarmoqda bo'lishi kerak. Kamera IP manzilini router, NVR yoki kamera admin sahifasidan oling.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>2. RTSP manzilini kiriting</strong>
+                        <p>Ko'p kameralar uchun format: <code>rtsp://login:parol@IP:554/stream1</code>. Masalan: <code>rtsp://admin:12345@192.168.1.25:554/stream1</code>.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>3. Default kamerani sinang</strong>
+                        <p>Agar hozircha universitet kamerasi manzili bo'lmasa, <code>Webcam 0</code> yoki <code>Ochiq RTSP test</code> variantini tanlab saqlang.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>4. Xonani nomlang</strong>
+                        <p><code>E 102 xona</code> kabi nom kiriting. Bu nom bosh sahifada sessiya nomi sifatida chiqadi va saqlangan kamera bilan birga qoladi.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>5. Monitoringni boshlang</strong>
+                        <p>Saqlagandan keyin bosh sahifaga qayting. RTSP maydoni to'lgan bo'lsa, tizim universitet kamerasini ishlatadi. Bo'sh bo'lsa, webcam indekslari sinab ko'riladi.</p>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="admin-grid">
+            <article class="panel roster-panel">
+                <div class="panel-head">
+                    <h2>Universitet talabalar bazasi</h2>
+                    <span class="badge badge-idle">SQLite jadvali</span>
+                </div>
+                <div class="assign-box">
+                    <label class="field">
+                        <span>Talaba F.I.Sh.</span>
+                        <input id="newStudentName" type="text" placeholder="Abdullayev Bobur">
+                    </label>
+                    <label class="field">
+                        <span>Guruh</span>
+                        <input id="newStudentGroup" type="text" placeholder="KI-21">
+                    </label>
+                    <button id="addStudentBtn" class="btn btn-small">Bazaga qo'shish</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Talaba</th>
+                                <th>Guruh</th>
+                                <th>Izoh</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentRosterTable">
+                            {% for student in student_roster %}
+                            <tr>
+                                <td>{{ student.id }}</td>
+                                <td>{{ student.student_name }}</td>
+                                <td>{{ student.group_name or "Ko'rsatilmagan" }}</td>
+                                <td>{{ student.notes or "" }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4">Talabalar bazasi hozircha bo'sh.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="studentRoster" class="participant-list hidden-list">
+                    {% for student in student_roster %}
+                    <div class="participant-card">
+                        <div class="participant-title">{{ student.student_name }}</div>
+                        <div class="participant-meta">Guruh: <strong>{{ student.group_name or "Ko'rsatilmagan" }}</strong></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Default kameralar jadvali</h2>
+                    <span class="badge badge-live">Tayyor variantlar</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nomi</th>
+                                <th>Indeks</th>
+                                <th>Manba</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Webcam 0</td>
+                                <td>0</td>
+                                <td>Kompyuter yoki USB kamera</td>
+                            </tr>
+                            <tr>
+                                <td>Webcam 1</td>
+                                <td>1</td>
+                                <td>Ikkinchi kamera</td>
+                            </tr>
+                            <tr>
+                                <td>Webcam 2</td>
+                                <td>2</td>
+                                <td>Uchinchi kamera</td>
+                            </tr>
+                            <tr>
+                                <td>Ochiq RTSP test</td>
+                                <td>-1</td>
+                                <td><code>rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov</code></td>
+                            </tr>
+                            <tr>
+                                <td>Ochiq HLS test</td>
+                                <td>-1</td>
+                                <td><code>https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

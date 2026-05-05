@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Kirish</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell login-shell">
+        <header class="topbar">
+            <a class="brand-link" href="{{ url_for('index') }}">Admin kirish</a>
+            <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('index') }}">Bosh sahifa</a>
+            </nav>
+        </header>
+
+        <section class="login-grid">
+            <article class="panel login-panel">
+                <div class="panel-head">
+                    <h2>Admin panelga kirish</h2>
+                    <span class="badge badge-idle">Himoyalangan</span>
+                </div>
+                <form class="assign-box login-form" method="post" action="{{ url_for('admin_login') }}">
+                    <label class="field">
+                        <span>Parol</span>
+                        <input name="password" type="password" placeholder="Admin parolini kiriting" autofocus>
+                    </label>
+                    <button class="btn btn-primary" type="submit">Kirish</button>
+                    {% if error %}
+                    <div class="message-box error-box">{{ error }}</div>
+                    {% else %}
+                    <div class="message-box">Standart parol: admin123</div>
+                    {% endif %}
+                </form>
+            </article>
+
+            <aside class="panel guide-panel">
+                <div class="panel-head">
+                    <h2>Eslatma</h2>
+                </div>
+                <div class="guide-list">
+                    <div class="guide-item">
+                        <strong>Admin nima uchun kerak?</strong>
+                        <p>Universitet kamerasi manzili, xona nomi va kamera izohi faqat admin kirgandan keyin o'zgartiriladi.</p>
+                    </div>
+                    <div class="guide-item">
+                        <strong>Parolni almashtirish</strong>
+                        <p>Dasturni ishga tushirishda <code>ADMIN_PASSWORD</code> qiymatini bersangiz, standart parol o'rniga shu parol ishlaydi.</p>
+                    </div>
+                </div>
+            </aside>
+        </section>
+    </div>
+</body>
+</html>

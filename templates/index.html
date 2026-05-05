@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dars Faolligini Baholash Tizimi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="topbar">
+            <a class="brand-link" href="{{ url_for('index') }}">Dars monitoringi</a>
+            <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('admin_page') }}">Admin</a>
+                <a class="btn btn-small" href="{{ url_for('events_page') }}">Hodisa kuzatuvi</a>
+            </nav>
+        </header>
+
+        <section class="hero info-hero">
+            <div class="hero-copy">
+                <p class="eyebrow">Bitiruv / kurs loyihasi</p>
+                <div class="hero-title-block">
+                    <h1>Dars jarayonida tinglovchilar faolligini avtomatik baholash tizimi</h1>
+                    <div class="hero-accent-line"></div>
+                </div>
+                <p class="lead">
+                    Loyiha universitet auditoriyasidagi kamera oqimi orqali tinglovchilar mavjudligi,
+                    diqqat holati, harakat darajasi va ehtimoliy hodisalarni real vaqt rejimida tahlil qiladi.
+                    Bosh sahifa faqat tanishtiruv uchun; barcha sozlamalar admin panelda, kuzatuv esa alohida hodisa sahifasida bajariladi.
+                </p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="{{ url_for('events_page') }}">Hodisa kuzatuvini ochish</a>
+                    <a class="btn btn-secondary" href="{{ url_for('admin_page') }}">Admin panel</a>
+                </div>
+            </div>
+            <div class="hero-side project-card">
+                <div class="camera-readonly">
+                    <span>Saqlangan auditoriya</span>
+                    <strong>{{ camera_settings.room_name or 'E 102 xona' }}</strong>
+                </div>
+                <div class="camera-readonly">
+                    <span>Kamera manbasi</span>
+                    <strong>
+                        {% if camera_settings.camera_source %}
+                        Universitet/IP kamera
+                        {% else %}
+                        Webcam indeks: {{ camera_settings.camera_index }}
+                        {% endif %}
+                    </strong>
+                </div>
+                <div class="privacy-box">
+                    Tizim shaxsni tanimaydi. Natijalar anonim tracklar va ehtimoliy hodisa signallari sifatida ko'rsatiladi.
+                </div>
+            </div>
+        </section>
+
+        <section class="info-grid">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Loyiha vazifasi</h2>
+                </div>
+                <p class="event-lead">
+                    Kamera orqali darsdagi umumiy faollikni avtomatik baholash, o'qituvchiga real vaqt indikatorlari
+                    va sessiya yakunida saqlangan statistikani taqdim etish.
+                </p>
+            </article>
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Hodisa kuzatuvi nima qiladi?</h2>
+                </div>
+                <p class="event-lead">
+                    Hodisa kuzatuvi jonli video, ballar, talabalar tracklari, telefon ehtimoli, savol ishorasi,
+                    uyquchanlik va chalg'ish kabi barcha monitoring ko'rsatkichlarini bitta sahifada ko'rsatadi.
+                </p>
+            </article>
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Admin vazifasi</h2>
+                </div>
+                <p class="event-lead">
+                    Admin panelda universitet kamerasi tanlanadi, default kameralar saqlanadi va talabalar bazasi
+                    jadval ko'rinishida yuritiladi.
+                </p>
+            </article>
+        </section>
+    </div>
+</body>
+</html>
