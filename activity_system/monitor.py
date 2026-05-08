@@ -8,9 +8,15 @@ import shutil
 
 import cv2
 import numpy as np
+try:
+    import mss
+except ImportError:
+    mss = None
 
 from .config import FRAME_HEIGHT, FRAME_WIDTH, JPEG_QUALITY, SESSION_TIMEOUT_SECONDS
-from .database import insert_session, save_student_latest_results
+from .audio_recorder import AudioRecorder
+from .database import insert_session, save_session_participant_results, save_student_latest_results
+from .name_ocr import ZoomNameOcr
 
 
 @dataclass
@@ -148,6 +154,8 @@ class ActivityMonitor:
         self.face_detector_alt = self._load_face_detector("haarcascade_frontalface_alt2.xml")
         self.lock = threading.RLock()
         self.camera: cv2.VideoCapture | None = None
+        self.screen_capture = None
+        self.screen_monitor = None
         self.stats = SessionStats()
         self.previous_face_rois: list[np.ndarray] = []
         self.last_frame: np.ndarray | None = None
@@ -161,6 +169,8 @@ class ActivityMonitor:
         self.last_attempts: list[str] = []
         self.tracked_faces: list[dict] = []
         self.previous_gray_frame: np.ndarray | None = None
+        self.audio_recorder = AudioRecorder()
+        self.name_ocr = ZoomNameOcr()
 
     def _load_face_detector(self, filename: str = "haarcascade_frontalface_default.xml") -> cv2.CascadeClassifier:
         candidate_paths = [
@@ -224,19 +234,23 @@ class ActivityMonitor:
             if self.running:
                 return
             normalized_source = (camera_source or "").strip()
-            self.camera = self._open_camera(camera_index, normalized_source or None)
-            if self.camera is None:
+            if self._is_screen_source(normalized_source):
+                self._open_screen_capture(normalized_source)
+            else:
+                self.camera = self._open_camera(camera_index, normalized_source or None)
+            if self.camera is None and self.screen_capture is None:
                 self.active_camera_index = -1
                 self.active_backend = "none"
                 self.active_source_label = normalized_source or "webcam:auto"
                 self.last_error = (
-                    "Kamera ochilmadi. `0` yoki `1` indeksni sinab ko'ring, "
-                    "yoki RTSP/IP manzil to'g'ri kiritilganini tekshiring."
+                    "Manba ochilmadi. Zoom uchun `screen:1` ni sinab ko'ring, "
+                    "yoki virtual kamera indeksi to'g'ri kiritilganini tekshiring."
                 )
                 raise RuntimeError(self.last_error)
 
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+            if self.camera is not None:
+                self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+                self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
             self.stats = SessionStats(session_name=session_name)
             self.previous_face_rois = []
             self.tracked_faces = []
@@ -246,6 +260,37 @@ class ActivityMonitor:
             self.running = True
             self.last_error = ""
             self.last_face_seen_at = None
+            self.audio_recorder.start(session_name)
+
+    def _is_screen_source(self, camera_source: str) -> bool:
+        return camera_source.lower().startswith("screen")
+
+    def _open_screen_capture(self, camera_source: str) -> None:
+        if mss is None:
+            self.last_attempts = ["screen:mss not installed"]
+            raise RuntimeError("Zoom ekranini olish uchun `mss` paketi o'rnatilishi kerak.")
+
+        parts = camera_source.split(":", 1)
+        monitor_index = 1
+        if len(parts) == 2 and parts[1].strip():
+            try:
+                monitor_index = int(parts[1].strip())
+            except ValueError:
+                monitor_index = 1
+
+        grabber = mss.mss()
+        if monitor_index < 0 or monitor_index >= len(grabber.monitors):
+            grabber.close()
+            self.last_attempts = [f"screen:{monitor_index}"]
+            raise RuntimeError("Bunday monitor topilmadi. Odatda `screen:1` asosiy ekranni bildiradi.")
+
+        self.screen_capture = grabber
+        self.screen_monitor = grabber.monitors[monitor_index]
+        self.camera = None
+        self.active_camera_index = -1
+        self.active_backend = "ScreenCapture"
+        self.active_source_label = f"zoom-screen:{monitor_index}"
+        self.last_attempts = [self.active_source_label]
 
     def _camera_candidates(
         self,
@@ -316,9 +361,17 @@ class ActivityMonitor:
             if save and self.stats.total_frames > 0:
                 payload = self._save_current_session()
 
+            audio_path = self.audio_recorder.stop()
+            if payload is not None:
+                payload["audio_path"] = audio_path
+
             if self.camera is not None:
                 self.camera.release()
             self.camera = None
+            if self.screen_capture is not None:
+                self.screen_capture.close()
+            self.screen_capture = None
+            self.screen_monitor = None
             self.running = False
             self.previous_face_rois = []
             self.tracked_faces = []
@@ -398,6 +451,11 @@ class ActivityMonitor:
         }
         session_id = insert_session(session_row)
         save_student_latest_results(
+            session_id=session_id,
+            participant_summary=payload.get("participant_summary", []),
+            updated_at=session_row["ended_at"],
+        )
+        save_session_participant_results(
             session_id=session_id,
             participant_summary=payload.get("participant_summary", []),
             updated_at=session_row["ended_at"],
@@ -586,18 +644,18 @@ class ActivityMonitor:
 
     def process_next_frame(self) -> bytes | None:
         with self.lock:
-            if not self.running or self.camera is None:
+            if not self.running or (self.camera is None and self.screen_capture is None):
                 return self._placeholder_frame(
                     "Monitoring hali boshlanmagan",
-                    "Start tugmasini bosing va kamera indeksini tekshiring",
+                    "Start tugmasini bosing va Zoom manbasini tekshiring",
                 )
 
-            ok, frame = self.camera.read()
+            ok, frame = self._read_source_frame()
             if not ok:
-                self.last_error = "Kameradan kadr olib bo'lmadi."
+                self.last_error = "Manbadan kadr olib bo'lmadi."
                 return self._placeholder_frame(
-                    "Kameradan tasvir kelmadi",
-                    "Kamera boshqa dastur tomonidan band bo'lishi mumkin",
+                    "Tasvir kelmadi",
+                    "Zoom oynasi ochiq turgan monitorni tanlang yoki virtual kamerani tekshiring",
                 )
 
             frame = cv2.flip(frame, 1)
@@ -661,6 +719,10 @@ class ActivityMonitor:
                     participant_stats["max_score"] = max(participant_stats["max_score"], face_score)
                     participant_stats.setdefault("event_counts", {})
                     participant_stats.setdefault("state", {})
+                    if not participant_stats.get("assigned_name"):
+                        ocr_name = self.name_ocr.read_name_near_face(frame, tuple(face_box))
+                        if ocr_name:
+                            participant_stats["assigned_name"] = ocr_name
 
                     event_flags = self._classify_behavior_events(
                         face_box,
@@ -696,7 +758,7 @@ class ActivityMonitor:
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (46, 204, 113), 2)
                     cv2.putText(
                         frame,
-                        f"{matched_face['participant_id']}: {face_score:.0f}",
+                        f"{participant_stats.get('assigned_name') or matched_face['participant_id']}: {face_score:.0f}",
                         (x, max(30, y - 8)),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.55,
@@ -750,6 +812,17 @@ class ActivityMonitor:
                 self.last_encoded_frame = encoded.tobytes()
             return self.last_encoded_frame
 
+    def _read_source_frame(self) -> tuple[bool, np.ndarray | None]:
+        if self.screen_capture is not None and self.screen_monitor is not None:
+            shot = self.screen_capture.grab(self.screen_monitor)
+            frame = np.array(shot)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+            frame = cv2.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT), interpolation=cv2.INTER_AREA)
+            return True, frame
+        if self.camera is not None:
+            return self.camera.read()
+        return False, None
+
     def _placeholder_frame(self, title: str, subtitle: str) -> bytes | None:
         frame = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), dtype=np.uint8)
         frame[:] = (14, 22, 32)
@@ -776,7 +849,7 @@ class ActivityMonitor:
         )
         cv2.putText(
             frame,
-            f"Aktiv kamera: {self.active_camera_index} | Backend: {self.active_backend}",
+            f"Faol manba: {self.active_source_label} | Backend: {self.active_backend}",
             (110, 335),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.75,
@@ -821,11 +894,11 @@ class ActivityMonitor:
 
     def get_frame_bytes(self) -> bytes | None:
         try:
-            if self.running and self.camera is not None:
+            if self.running and (self.camera is not None or self.screen_capture is not None):
                 return self.process_next_frame()
             return self._placeholder_frame(
                 "Monitoring hali boshlanmagan",
-                "Start tugmasini bosing va kamera indeksini tekshiring",
+                "Start tugmasini bosing va Zoom manbasini tekshiring",
             )
         except Exception as exc:
             self.last_error = f"Kadrni tayyorlashda xatolik: {exc}"
@@ -841,11 +914,13 @@ class ActivityMonitor:
                 {
                     "running": self.running,
                     "last_error": self.last_error,
-                    "camera_ready": self.camera is not None,
+                    "camera_ready": self.camera is not None or self.screen_capture is not None,
                     "active_camera_index": self.active_camera_index,
                     "active_backend": self.active_backend,
                     "active_source_label": self.active_source_label,
                     "last_attempts": self.last_attempts,
+                    "audio": self.audio_recorder.get_status(),
+                    "ocr": self.name_ocr.get_status(),
                 }
             )
             return payload

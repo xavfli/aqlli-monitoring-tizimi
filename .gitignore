@@ -9,6 +9,7 @@ data/*.db-journal
 *.db
 *.db-journal
 exports/*.csv
+exports/audio/
 
 .env
 instance/

@@ -14,6 +14,8 @@
         <header class="topbar">
             <a class="brand-link" href="{{ url_for('index') }}">Dars monitoringi</a>
             <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('events_page') }}">Live ballar</a>
+                <a class="btn btn-small" href="{{ url_for('results_page') }}">Natijalar</a>
                 <a class="btn btn-small" href="{{ url_for('admin_page') }}">Admin</a>
                 <a class="btn btn-small" href="{{ url_for('events_page') }}">Hodisa kuzatuvi</a>
             </nav>
@@ -27,7 +29,7 @@
                     <div class="hero-accent-line"></div>
                 </div>
                 <p class="lead">
-                    Loyiha universitet auditoriyasidagi kamera oqimi orqali tinglovchilar mavjudligi,
+                    Loyiha Zoom darsi yoki kompyuter ekranidagi jonli oqim orqali tinglovchilar mavjudligi,
                     diqqat holati, harakat darajasi va ehtimoliy hodisalarni real vaqt rejimida tahlil qiladi.
                     Bosh sahifa faqat tanishtiruv uchun; barcha sozlamalar admin panelda, kuzatuv esa alohida hodisa sahifasida bajariladi.
                 </p>
@@ -38,16 +40,16 @@
             </div>
             <div class="hero-side project-card">
                 <div class="camera-readonly">
-                    <span>Saqlangan auditoriya</span>
-                    <strong>{{ camera_settings.room_name or 'E 102 xona' }}</strong>
+                    <span>Saqlangan sessiya</span>
+                    <strong>{{ camera_settings.room_name or 'Zoom darsi' }}</strong>
                 </div>
                 <div class="camera-readonly">
-                    <span>Kamera manbasi</span>
+                    <span>Zoom manbasi</span>
                     <strong>
                         {% if camera_settings.camera_source %}
-                        Universitet/IP kamera
+                        {{ camera_settings.camera_source }}
                         {% else %}
-                        Webcam indeks: {{ camera_settings.camera_index }}
+                        Virtual kamera indeksi: {{ camera_settings.camera_index }}
                         {% endif %}
                     </strong>
                 </div>
@@ -63,7 +65,7 @@
                     <h2>Loyiha vazifasi</h2>
                 </div>
                 <p class="event-lead">
-                    Kamera orqali darsdagi umumiy faollikni avtomatik baholash, o'qituvchiga real vaqt indikatorlari
+                    Zoom oynasi yoki virtual kamera orqali darsdagi umumiy faollikni avtomatik baholash, o'qituvchiga real vaqt indikatorlari
                     va sessiya yakunida saqlangan statistikani taqdim etish.
                 </p>
             </article>
@@ -81,7 +83,7 @@
                     <h2>Admin vazifasi</h2>
                 </div>
                 <p class="event-lead">
-                    Admin panelda universitet kamerasi tanlanadi, default kameralar saqlanadi va talabalar bazasi
+                    Admin panelda Zoom ekran manbasi yoki virtual kamera tanlanadi va talabalar bazasi
                     jadval ko'rinishida yuritiladi.
                 </p>
             </article>

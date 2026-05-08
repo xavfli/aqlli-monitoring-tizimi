@@ -1,3 +1,6 @@
 flask>=3.0.0
 opencv-python>=4.10.0
 numpy>=1.26.0
+mss>=9.0.1
+sounddevice>=0.4.6
+pytesseract>=0.3.13

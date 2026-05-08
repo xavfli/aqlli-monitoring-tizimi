@@ -74,13 +74,17 @@ function updateStatus(status) {
     setTextIfPresent("backendName", status.active_backend || "none");
     setTextIfPresent("activeCamera", status.active_camera_index);
     setTextIfPresent("activeSource", status.active_source_label || "webcam:auto");
+    setTextIfPresent("audioStatus", status.audio?.running ? "Yozilmoqda" : (status.audio?.available ? "Tayyor" : "O'rnatilmagan"));
+    setTextIfPresent("audioFile", status.audio?.output_path || "Yo'q");
+    setTextIfPresent("ocrStatus", status.ocr?.available ? "Tayyor" : "O'rnatilmagan");
+    setTextIfPresent("ocrError", status.ocr?.last_error || "Yo'q");
     setTextIfPresent("phoneSuspects", status.event_totals?.phone_suspect ?? 0);
     setTextIfPresent("questionGestures", status.event_totals?.question_gesture ?? 0);
     setTextIfPresent("drowsySuspects", status.event_totals?.drowsy_suspect ?? 0);
     setTextIfPresent("lookingAway", status.event_totals?.looking_away ?? 0);
     updateParticipants(status.participant_summary || []);
     if (status.last_attempts?.length && !status.running) {
-        setMessage(`Kamera topilmadi. Sinab ko'rilganlar: ${status.last_attempts.join(", ")}`, true);
+        setMessage(`Manba topilmadi. Sinab ko'rilganlar: ${status.last_attempts.join(", ")}`, true);
     }
     setBadge(status.running);
 }
@@ -120,13 +124,12 @@ function updateParticipants(participants) {
         return;
     }
     if (!participants?.length) {
-        participantList.innerHTML = `<div class="participant-empty">Hozircha anonim trek statistikasi yo'q.</div>`;
+        participantList.innerHTML = `<div class="participant-empty">Monitoring boshlanganda Zoom oynasida ko'ringan ismlar va ballar shu yerda chiqadi.</div>`;
         return;
     }
     participantList.innerHTML = participants.map((participant) => `
         <div class="participant-card">
             <div class="participant-title">${participant.display_name || participant.participant_id}</div>
-            <div class="participant-meta">Track: <strong>${participant.participant_id}</strong></div>
             <div class="participant-meta">O'rtacha ball: <strong>${participant.average_score}</strong></div>
             <div class="participant-meta">Maksimal ball: <strong>${participant.max_score}</strong></div>
             <div class="participant-meta">Kadrlar ulushi: <strong>${participant.presence_ratio}%</strong></div>
@@ -153,7 +156,6 @@ function updateStudentResults(studentResults) {
             <div class="participant-meta">Oxirgi ball: <strong>${student.average_score}</strong></div>
             <div class="participant-meta">Maksimal ball: <strong>${student.max_score}</strong></div>
             <div class="participant-meta">Mavjudlik: <strong>${student.presence_ratio}%</strong></div>
-            <div class="participant-meta">Track: <strong>${student.participant_id}</strong></div>
         </div>
     `).join("");
 }
@@ -161,16 +163,6 @@ function updateStudentResults(studentResults) {
 function updateStudentRoster(studentRoster) {
     const container = document.getElementById("studentRoster");
     const table = document.getElementById("studentRosterTable");
-    const select = document.getElementById("assignStudentName");
-    if (select) {
-        const currentValue = select.value;
-        select.innerHTML = `<option value="">Ro'yxatdan tanlang</option>` + (studentRoster || []).map((student) => `
-            <option value="${student.student_name}">${student.student_name}${student.group_name ? ` - ${student.group_name}` : ""}</option>
-        `).join("");
-        if (currentValue) {
-            select.value = currentValue;
-        }
-    }
     if (table) {
         if (!studentRoster?.length) {
             table.innerHTML = `<tr><td colspan="4">Talabalar bazasi hozircha bo'sh.</td></tr>`;
@@ -215,7 +207,11 @@ if (startBtn) {
         const sessionName = getElementValue("sessionName", "Amaliy dars sessiyasi").trim();
         const cameraIndex = Number(getElementValue("cameraIndex", "-1") || -1);
         const cameraSource = getElementValue("cameraSource", "").trim();
-        setMessage("Kamera ulanmoqda, bir necha soniya kuting...");
+        const zoomLink = getElementValue("zoomLink", "").trim();
+        if (zoomLink) {
+            window.open(zoomLink, "_blank", "noopener");
+        }
+        setMessage("Zoom manbasi ulanmoqda, bir necha soniya kuting...");
         const data = await postJson("/api/monitor/start", {
             session_name: sessionName,
             camera_index: cameraIndex,
@@ -247,6 +243,9 @@ if (stopBtn) {
             updateStudentResults(data.student_results);
         }
         reconnectVideo();
+        if (data.results_url) {
+            window.location.href = data.results_url;
+        }
     });
 }
 
@@ -273,26 +272,6 @@ async function refreshDashboard() {
     updateStudentRoster(data.student_roster);
 }
 
-const assignBtn = document.getElementById("assignBtn");
-if (assignBtn) {
-    assignBtn.addEventListener("click", async () => {
-        const participantId = document.getElementById("assignParticipantId").value.trim();
-        const studentName = document.getElementById("assignStudentName").value.trim();
-        if (!participantId || !studentName) {
-            setMessage("Track va talaba nomini to'ldiring", true);
-            return;
-        }
-        const data = await postJson("/api/participants/assign", {
-            participant_id: participantId,
-            student_name: studentName,
-        });
-        setMessage(data.message, !data.ok);
-        if (data.status) {
-            updateStatus(data.status);
-        }
-    });
-}
-
 const addStudentBtn = document.getElementById("addStudentBtn");
 if (addStudentBtn) {
     addStudentBtn.addEventListener("click", async () => {
@@ -313,10 +292,6 @@ if (addStudentBtn) {
         if (data.ok) {
             document.getElementById("newStudentName").value = "";
             document.getElementById("newStudentGroup").value = "";
-            const assignStudentName = document.getElementById("assignStudentName");
-            if (assignStudentName) {
-                assignStudentName.value = studentName;
-            }
         }
     });
 }
@@ -327,19 +302,101 @@ if (saveCameraBtn) {
         const roomName = document.getElementById("adminRoomName").value.trim();
         const cameraIndex = Number(document.getElementById("adminCameraIndex").value || -1);
         const cameraSource = document.getElementById("adminCameraSource").value.trim();
+        const zoomLink = document.getElementById("adminZoomLink").value.trim();
+        const zoomMeetingId = document.getElementById("adminZoomMeetingId").value.trim();
+        const zoomPasscode = document.getElementById("adminZoomPasscode").value.trim();
         const notes = document.getElementById("adminCameraNotes").value.trim();
         if (!roomName) {
-            setMessage("Xona nomini kiriting", true);
+            setMessage("Sessiya nomini kiriting", true);
             return;
         }
-        setMessage("Kamera sozlamalari saqlanmoqda...");
+        setMessage("Zoom manbasi saqlanmoqda...");
         const data = await postJson("/api/admin/camera", {
             room_name: roomName,
             camera_index: cameraIndex,
             camera_source: cameraSource,
+            zoom_link: zoomLink,
+            zoom_meeting_id: zoomMeetingId,
+            zoom_passcode: zoomPasscode,
             notes,
         });
         setMessage(data.message, !data.ok);
+        const openZoomLink = document.getElementById("openZoomLink");
+        if (openZoomLink) {
+            openZoomLink.href = zoomLink || "#";
+        }
+    });
+}
+
+function parseZoomInviteText(showMessage = false) {
+    const inviteElement = document.getElementById("zoomInviteText");
+    const zoomLinkElement = document.getElementById("adminZoomLink");
+    if (!inviteElement && !zoomLinkElement) {
+        return false;
+    }
+
+    const inviteText = inviteElement?.value.trim() || "";
+    const existingLink = zoomLinkElement?.value.trim() || "";
+    const sourceText = `${inviteText}\n${existingLink}`.trim();
+    if (!sourceText) {
+        if (showMessage) {
+            setMessage("Zoom invitation matnini yoki linkni kiriting", true);
+        }
+        return false;
+    }
+
+    const linkMatch = sourceText.match(/https?:\/\/\S*zoom\.us\/j\/\S+/i);
+    const topicMatch = sourceText.match(/^Topic:\s*(.+)$/im);
+    const meetingMatch = sourceText.match(/^Meeting ID:\s*([0-9 ]+)/im);
+    const passcodeMatch = sourceText.match(/^Passcode:\s*(.+)$/im);
+    const linkMeetingMatch = (linkMatch?.[0] || existingLink).match(/\/j\/(\d+)/i);
+
+    if (topicMatch) {
+        document.getElementById("adminRoomName").value = topicMatch[1].trim();
+    }
+    if (linkMatch && zoomLinkElement) {
+        zoomLinkElement.value = linkMatch[0].trim();
+    }
+    if (meetingMatch) {
+        document.getElementById("adminZoomMeetingId").value = meetingMatch[1].trim();
+    } else if (linkMeetingMatch) {
+        document.getElementById("adminZoomMeetingId").value = linkMeetingMatch[1].replace(/(\d{3})(\d{3})(\d+)/, "$1 $2 $3");
+    }
+    if (passcodeMatch) {
+        document.getElementById("adminZoomPasscode").value = passcodeMatch[1].trim();
+    }
+    document.getElementById("adminCameraSource").value ||= "screen:1";
+
+    const finalLink = linkMatch?.[0]?.trim() || existingLink;
+    const openZoomLink = document.getElementById("openZoomLink");
+    if (openZoomLink && finalLink) {
+        openZoomLink.href = finalLink;
+    }
+    if (showMessage || linkMatch || meetingMatch || passcodeMatch || topicMatch) {
+        setMessage(finalLink ? "Zoom ma'lumotlari avtomatik olindi. Endi saqlang." : "Link topilmadi, invitation matnini tekshiring.", !finalLink);
+    }
+    return Boolean(finalLink || meetingMatch || passcodeMatch || topicMatch);
+}
+
+const parseZoomInviteBtn = document.getElementById("parseZoomInviteBtn");
+if (parseZoomInviteBtn) {
+    parseZoomInviteBtn.addEventListener("click", () => parseZoomInviteText(true));
+}
+
+const zoomInviteText = document.getElementById("zoomInviteText");
+if (zoomInviteText) {
+    zoomInviteText.addEventListener("paste", () => {
+        setTimeout(() => parseZoomInviteText(true), 0);
+    });
+    zoomInviteText.addEventListener("input", () => {
+        parseZoomInviteText(false);
+    });
+}
+
+const adminZoomLink = document.getElementById("adminZoomLink");
+if (adminZoomLink) {
+    adminZoomLink.addEventListener("input", () => {
+        parseZoomInviteText(false);
     });
 }
 
@@ -350,37 +407,11 @@ if (defaultCameraPreset) {
             return;
         }
         const preset = JSON.parse(defaultCameraPreset.value);
-        document.getElementById("adminRoomName").value = preset.room || "E 102 xona";
+        document.getElementById("adminRoomName").value = preset.room || "Zoom darsi";
         document.getElementById("adminCameraIndex").value = preset.index ?? -1;
         document.getElementById("adminCameraSource").value = preset.source || "";
         document.getElementById("adminCameraNotes").value = preset.notes || "";
-        setMessage("Default kamera tanlandi. Saqlash uchun pastdagi tugmani bosing.");
-    });
-}
-
-const saveUniversityDbBtn = document.getElementById("saveUniversityDbBtn");
-if (saveUniversityDbBtn) {
-    saveUniversityDbBtn.addEventListener("click", async () => {
-        const payload = {
-            db_type: document.getElementById("universityDbType").value,
-            host: document.getElementById("universityDbHost").value.trim(),
-            port: document.getElementById("universityDbPort").value.trim(),
-            database_name: document.getElementById("universityDbName").value.trim(),
-            username: document.getElementById("universityDbUsername").value.trim(),
-            password: document.getElementById("universityDbPassword").value.trim(),
-            student_table: document.getElementById("universityStudentTable").value.trim(),
-            student_id_column: document.getElementById("universityStudentIdColumn").value.trim(),
-            student_name_column: document.getElementById("universityStudentNameColumn").value.trim(),
-            group_column: document.getElementById("universityGroupColumn").value.trim(),
-            notes: document.getElementById("universityDbNotes").value.trim(),
-        };
-        if (!payload.student_table || !payload.student_name_column) {
-            setMessage("Talabalar jadvali va F.I.Sh. ustunini kiriting", true);
-            return;
-        }
-        setMessage("Universitet bazasi sozlamalari saqlanmoqda...");
-        const data = await postJson("/api/admin/university-db", payload);
-        setMessage(data.message, !data.ok);
+        setMessage("Manba tanlandi. Saqlash uchun pastdagi tugmani bosing.");
     });
 }
 

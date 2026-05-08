@@ -14,6 +14,8 @@
         <header class="topbar">
             <a class="brand-link" href="{{ url_for('events_page') }}">Hodisa kuzatuvi</a>
             <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('events_page') }}">Live ballar</a>
+                <a class="btn btn-small" href="{{ url_for('results_page') }}">Natijalar</a>
                 <a class="btn btn-small" href="{{ url_for('index') }}">Bosh sahifa</a>
                 <a class="btn btn-small" href="{{ url_for('admin_page') }}">Admin</a>
             </nav>
@@ -27,17 +29,19 @@
                     <div class="hero-accent-line"></div>
                 </div>
                 <p class="lead">
-                    Bu sahifa jonli video oqim, faollik ballari, talaba tracklari, sessiyalar va ehtimoliy
+                    Bu sahifa jarayonni kuzatish uchun asosiy oynadir: jonli video oqim, faollik ballari, talabalar ismlari, sessiyalar va ehtimoliy
                     hodisalarni bir joyda kuzatadi. Boshqaruv faqat shu yerda ishlaydi.
                 </p>
                 <div class="hero-actions">
+                    <a id="zoomStartLink" class="btn btn-secondary" href="{{ camera_settings.zoom_link or '#' }}" target="_blank" rel="noopener">Zoomni boshlash</a>
                     <button id="startBtn" class="btn btn-primary">Monitoringni boshlash</button>
                     <button id="stopBtn" class="btn btn-secondary">To'xtatish va saqlash</button>
                     <button id="resetBtn" class="btn btn-ghost">Statistikani tozalash</button>
                 </div>
                 <input id="cameraIndex" type="hidden" value="{{ camera_settings.camera_index }}">
                 <input id="cameraSource" type="hidden" value="{{ camera_settings.camera_source }}">
-                <span id="sessionName" data-value="{{ camera_settings.room_name or 'E 102 xona' }}" hidden>{{ camera_settings.room_name or 'E 102 xona' }}</span>
+                <input id="zoomLink" type="hidden" value="{{ camera_settings.zoom_link or '' }}">
+                <span id="sessionName" data-value="{{ camera_settings.room_name or 'Zoom darsi' }}" hidden>{{ camera_settings.room_name or 'Zoom darsi' }}</span>
             </div>
             <div class="hero-side">
                 <div class="panel-head">
@@ -67,6 +71,26 @@
                         <strong id="heroCurrentScore">{{ status.average_score }}</strong>
                     </div>
                 </div>
+                <div class="tech-stack">
+                    <div>
+                        <span>Audio yozuv</span>
+                        <strong id="audioStatus">{% if status.audio.running %}Yozilmoqda{% elif status.audio.available %}Tayyor{% else %}O'rnatilmagan{% endif %}</strong>
+                    </div>
+                    <div>
+                        <span>Audio fayl</span>
+                        <strong id="audioFile">{{ status.audio.output_path or "Yo'q" }}</strong>
+                    </div>
+                </div>
+                <div class="tech-stack">
+                    <div>
+                        <span>Zoom ismlari OCR</span>
+                        <strong id="ocrStatus">{% if status.ocr.available %}Tayyor{% else %}O'rnatilmagan{% endif %}</strong>
+                    </div>
+                    <div>
+                        <span>OCR xabar</span>
+                        <strong id="ocrError">{{ status.ocr.last_error or "Yo'q" }}</strong>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -74,15 +98,15 @@
             <article class="panel video-panel">
                 <div class="panel-head">
                     <h2>Jonli video oqim</h2>
-                    <span class="badge badge-live">Kamera nazorati</span>
+                    <span class="badge badge-live">Zoom nazorati</span>
                 </div>
                 <div class="video-wrap">
                     <div class="scanline"></div>
                     <div class="video-frame-decor frame-top"></div>
                     <div class="video-frame-decor frame-bottom"></div>
-                    <img id="videoFeed" src="{{ url_for('video_frame') }}" alt="Jonli kamera oqimi">
+                    <img id="videoFeed" src="{{ url_for('video_frame') }}" alt="Jonli Zoom oqimi">
                 </div>
-                <div class="caption">Kamera admin panelda saqlangan manba orqali ulanadi.</div>
+                <div class="caption">Zoom oynasi yoki virtual kamera admin panelda saqlangan manba orqali ulanadi.</div>
             </article>
 
             <article class="panel metrics-panel">
@@ -150,26 +174,11 @@
         <section class="management-grid">
             <article class="panel participant-panel">
                 <div class="panel-head">
-                    <h2>Anonim treklar</h2>
-                </div>
-                <div class="assign-box">
-                    <label class="field">
-                        <span>Track</span>
-                        <input id="assignParticipantId" type="text" placeholder="Tinglovchi 1">
-                    </label>
-                    <label class="field">
-                        <span>Talabani bazadan tanlang</span>
-                        <select id="assignStudentName">
-                            <option value="">Universitet bazasidan tanlang</option>
-                            {% for student in student_roster %}
-                            <option value="{{ student.student_name }}">{{ student.student_name }}{% if student.group_name %} - {{ student.group_name }}{% endif %}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-                    <button id="assignBtn" class="btn btn-small">Trackni talaba bilan bog'lash</button>
+                    <h2>Zoom ismlari va ballar</h2>
+                    <span class="badge badge-idle">OCR avtomatik</span>
                 </div>
                 <div id="participantList" class="participant-list">
-                    <div class="participant-empty">Hozircha anonim trek statistikasi yo'q.</div>
+                    <div class="participant-empty">Monitoring boshlanganda Zoom oynasida ko'ringan ismlar va ballar shu yerda chiqadi.</div>
                 </div>
             </article>
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Kamera sozlamalari</title>
+    <title>Admin - Zoom sozlamalari</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -16,6 +16,8 @@
         <header class="topbar">
             <a class="brand-link" href="{{ url_for('index') }}">Admin panel</a>
             <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('events_page') }}">Live ballar</a>
+                <a class="btn btn-small" href="{{ url_for('results_page') }}">Natijalar</a>
                 <a class="btn btn-small" href="{{ url_for('index') }}">Bosh sahifa</a>
                 <a class="btn btn-small" href="{{ url_for('events_page') }}">Hodisa sahifasi</a>
                 <a class="btn btn-small" href="{{ url_for('admin_logout') }}">Chiqish</a>
@@ -25,38 +27,58 @@
         <section class="admin-grid">
             <article class="panel admin-panel">
                 <div class="panel-head">
-                    <h2>Universitet kamerasi</h2>
+                    <h2>Zoom manbasi</h2>
                     <span class="badge badge-idle">Saqlanadigan sozlama</span>
                 </div>
                 <div class="assign-box admin-form">
                     <label class="field">
-                        <span>Default kamera tanlash</span>
+                        <span>Manba tanlash</span>
                         <select id="defaultCameraPreset">
                             <option value="">Qo'lda kiritish</option>
-                            <option value='{"room":"Kompyuter kamerasi","index":0,"source":"","notes":"Noutbuk yoki USB webcam"}'>Webcam 0</option>
-                            <option value='{"room":"Kompyuter kamerasi 2","index":1,"source":"","notes":"Ikkinchi USB webcam yoki virtual kamera"}'>Webcam 1</option>
-                            <option value='{"room":"Kompyuter kamerasi 3","index":2,"source":"","notes":"Uchinchi kamera indeksi"}'>Webcam 2</option>
-                            <option value='{"room":"E 102 xona","index":-1,"source":"rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov","notes":"Ochiq RTSP test oqimi. Universitet kamerasi o'rniga ulanishni tekshirish uchun."}'>Ochiq RTSP test</option>
-                            <option value='{"room":"E 102 xona","index":-1,"source":"https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8","notes":"Ochiq HLS test oqimi. OpenCV muhitiga qarab ishlashi mumkin."}'>Ochiq HLS test</option>
+                            <option value='{"room":"Zoom darsi","index":-1,"source":"screen:1","notes":"Asosiy monitor ekrani. Zoom oynasini shu ekranda oching."}'>Zoom ekrani</option>
+                            <option value='{"room":"Zoom virtual kamera","index":0,"source":"","notes":"OBS Virtual Camera yoki Zoom virtual kamerasi 0-indeksda ko'rinsa ishlatiladi."}'>Virtual kamera 0</option>
+                            <option value='{"room":"Zoom virtual kamera 2","index":1,"source":"","notes":"Virtual kamera 1-indeksda ko'rinsa ishlatiladi."}'>Virtual kamera 1</option>
                         </select>
                     </label>
                     <label class="field">
-                        <span>Xona nomi</span>
-                        <input id="adminRoomName" type="text" value="{{ camera_settings.room_name or 'E 102 xona' }}" placeholder="E 102 xona">
+                        <span>Sessiya nomi</span>
+                        <input id="adminRoomName" type="text" value="{{ camera_settings.room_name or 'Zoom darsi' }}" placeholder="Zoom darsi">
                     </label>
                     <label class="field">
-                        <span>Kamera indeksi</span>
+                        <span>Zoom invitation matni</span>
+                        <textarea id="zoomInviteText" placeholder="Teacher is inviting you...\nTopic: Zoom demo darsi\nJoin Zoom Meeting\nhttps://...\nMeeting ID: ...\nPasscode: ..."></textarea>
+                    </label>
+                    <button id="parseZoomInviteBtn" class="btn btn-small" type="button">Invitationdan olish</button>
+                    <label class="field">
+                        <span>Virtual kamera indeksi</span>
                         <input id="adminCameraIndex" type="number" value="{{ camera_settings.camera_index }}" min="-1">
                     </label>
                     <label class="field">
-                        <span>RTSP yoki IP kamera manzili</span>
-                        <input id="adminCameraSource" type="text" value="{{ camera_settings.camera_source }}" placeholder="rtsp://user:parol@192.168.1.25:554/stream1">
+                        <span>Zoom ekran manbasi</span>
+                        <input id="adminCameraSource" type="text" value="{{ camera_settings.camera_source }}" placeholder="screen:1">
                     </label>
                     <label class="field">
-                        <span>Izoh</span>
-                        <textarea id="adminCameraNotes" placeholder="Masalan: E 102, doskaga qaragan IP kamera">{{ camera_settings.notes }}</textarea>
+                        <span>Zoom linki</span>
+                        <input id="adminZoomLink" type="url" value="{{ camera_settings.zoom_link or '' }}" placeholder="https://zoom.us/j/123456789?pwd=...">
                     </label>
-                    <button id="saveCameraBtn" class="btn btn-primary">Kamerani saqlash</button>
+                    <div class="form-grid-2">
+                        <label class="field">
+                            <span>Meeting ID</span>
+                            <input id="adminZoomMeetingId" type="text" value="{{ camera_settings.zoom_meeting_id or '' }}" placeholder="533 606 8317">
+                        </label>
+                        <label class="field">
+                            <span>Passcode</span>
+                            <input id="adminZoomPasscode" type="text" value="{{ camera_settings.zoom_passcode or '' }}" placeholder="1Xkpny">
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span>Izoh</span>
+                        <textarea id="adminCameraNotes" placeholder="Masalan: Zoom oynasi asosiy monitorda ochiladi">{{ camera_settings.notes }}</textarea>
+                    </label>
+                    <div class="button-row">
+                        <button id="saveCameraBtn" class="btn btn-primary">Zoom manbasini saqlash</button>
+                        <a id="openZoomLink" class="btn btn-secondary" href="{{ camera_settings.zoom_link or '#' }}" target="_blank" rel="noopener">Zoomni ochish</a>
+                    </div>
                     <div id="messageBox" class="message-box">Admin sozlamalari tayyor.</div>
                 </div>
             </article>
@@ -67,215 +89,27 @@
                 </div>
                 <div class="guide-list">
                     <div class="guide-item">
-                        <strong>1. Kamerani tarmoqqa ulang</strong>
-                        <p>Universitet IP kamerasi kompyuter bilan bir xil lokal tarmoqda bo'lishi kerak. Kamera IP manzilini router, NVR yoki kamera admin sahifasidan oling.</p>
+                        <strong>1. Zoom taklif matnini paste qiling</strong>
+                        <p>Zoom invitation matnini to'liq joylang. Link, Meeting ID, Passcode va Topic darhol avtomatik ajratiladi.</p>
                     </div>
                     <div class="guide-item">
-                        <strong>2. RTSP manzilini kiriting</strong>
-                        <p>Ko'p kameralar uchun format: <code>rtsp://login:parol@IP:554/stream1</code>. Masalan: <code>rtsp://admin:12345@192.168.1.25:554/stream1</code>.</p>
+                        <strong>2. Zoomni oching</strong>
+                        <p>Saqlagandan keyin <code>Zoomni ochish</code> tugmasini bosing. Brauzer Zoom ilovasini ochishni so'rasa, ruxsat bering.</p>
                     </div>
                     <div class="guide-item">
-                        <strong>3. Default kamerani sinang</strong>
-                        <p>Agar hozircha universitet kamerasi manzili bo'lmasa, <code>Webcam 0</code> yoki <code>Ochiq RTSP test</code> variantini tanlab saqlang.</p>
+                        <strong>3. Ekran manbasini tanlang</strong>
+                        <p>Zoom oynasi asosiy monitorda bo'lsa <code>screen:1</code>, ikkinchi monitorda bo'lsa <code>screen:2</code> ni saqlang.</p>
                     </div>
                     <div class="guide-item">
-                        <strong>4. Xonani nomlang</strong>
-                        <p><code>E 102 xona</code> kabi nom kiriting. Bu nom bosh sahifada sessiya nomi sifatida chiqadi va saqlangan kamera bilan birga qoladi.</p>
+                        <strong>4. Faqat link yetadimi?</strong>
+                        <p>Yo'q. Link Zoomni ochadi, lekin tahlil uchun Zoom oynasi ekranda ko'rinib turishi va <code>screen:1</code> kabi manba tanlanishi kerak.</p>
                     </div>
                     <div class="guide-item">
-                        <strong>5. Monitoringni boshlang</strong>
-                        <p>Saqlagandan keyin bosh sahifaga qayting. RTSP maydoni to'lgan bo'lsa, tizim universitet kamerasini ishlatadi. Bo'sh bo'lsa, webcam indekslari sinab ko'riladi.</p>
+                        <strong>5. Audio yozish</strong>
+                        <p>Monitoring boshlanganda audio yozish ham ishga tushadi. Zoom ovozini yozish uchun Windows'da Stereo Mix yoki virtual audio cable kirish qurilmasi sifatida tanlangan bo'lishi kerak.</p>
                     </div>
                 </div>
             </aside>
-        </section>
-
-        <section class="admin-grid">
-            <article class="panel admin-panel">
-                <div class="panel-head">
-                    <h2>Universitet bazasini ulash</h2>
-                    <span class="badge badge-idle">Talabalar manbasi</span>
-                </div>
-                <div class="assign-box admin-form">
-                    <label class="field">
-                        <span>Baza turi</span>
-                        <select id="universityDbType">
-                            <option value="sqlite" {% if university_db_settings.db_type == "sqlite" %}selected{% endif %}>SQLite</option>
-                            <option value="mysql" {% if university_db_settings.db_type == "mysql" %}selected{% endif %}>MySQL</option>
-                            <option value="postgresql" {% if university_db_settings.db_type == "postgresql" %}selected{% endif %}>PostgreSQL</option>
-                            <option value="mssql" {% if university_db_settings.db_type == "mssql" %}selected{% endif %}>MS SQL Server</option>
-                        </select>
-                    </label>
-                    <div class="form-grid-2">
-                        <label class="field">
-                            <span>Host/IP</span>
-                            <input id="universityDbHost" type="text" value="{{ university_db_settings.host }}" placeholder="192.168.1.10">
-                        </label>
-                        <label class="field">
-                            <span>Port</span>
-                            <input id="universityDbPort" type="text" value="{{ university_db_settings.port }}" placeholder="3306">
-                        </label>
-                    </div>
-                    <label class="field">
-                        <span>Database nomi yoki SQLite fayl yo'li</span>
-                        <input id="universityDbName" type="text" value="{{ university_db_settings.database_name }}" placeholder="university">
-                    </label>
-                    <div class="form-grid-2">
-                        <label class="field">
-                            <span>Username</span>
-                            <input id="universityDbUsername" type="text" value="{{ university_db_settings.username }}" placeholder="db_user">
-                        </label>
-                        <label class="field">
-                            <span>Password</span>
-                            <input id="universityDbPassword" type="password" value="{{ university_db_settings.password }}" placeholder="********">
-                        </label>
-                    </div>
-                    <div class="form-grid-2">
-                        <label class="field">
-                            <span>Talabalar jadvali</span>
-                            <input id="universityStudentTable" type="text" value="{{ university_db_settings.student_table }}" placeholder="students">
-                        </label>
-                        <label class="field">
-                            <span>Student ID ustuni</span>
-                            <input id="universityStudentIdColumn" type="text" value="{{ university_db_settings.student_id_column }}" placeholder="student_id">
-                        </label>
-                    </div>
-                    <div class="form-grid-2">
-                        <label class="field">
-                            <span>Talaba F.I.Sh. ustuni</span>
-                            <input id="universityStudentNameColumn" type="text" value="{{ university_db_settings.student_name_column }}" placeholder="full_name">
-                        </label>
-                        <label class="field">
-                            <span>Guruh ustuni</span>
-                            <input id="universityGroupColumn" type="text" value="{{ university_db_settings.group_column }}" placeholder="group_name">
-                        </label>
-                    </div>
-                    <label class="field">
-                        <span>Izoh</span>
-                        <textarea id="universityDbNotes" placeholder="Masalan: universitet asosiy talabalar bazasi">{{ university_db_settings.notes }}</textarea>
-                    </label>
-                    <button id="saveUniversityDbBtn" class="btn btn-primary">Universitet bazasini saqlash</button>
-                </div>
-            </article>
-
-            <aside class="panel guide-panel">
-                <div class="panel-head">
-                    <h2>Baza ulash yo'riqnomasi</h2>
-                </div>
-                <div class="guide-list">
-                    <div class="guide-item">
-                        <strong>1. Baza turini tanlang</strong>
-                        <p>Universitetda qaysi tizim ishlatilsa, shu turni tanlang: <code>MySQL</code>, <code>PostgreSQL</code>, <code>MS SQL</code> yoki <code>SQLite</code>.</p>
-                    </div>
-                    <div class="guide-item">
-                        <strong>2. Jadval va ustunlarni yozing</strong>
-                        <p>Masalan: jadval <code>students</code>, F.I.Sh. ustuni <code>full_name</code>, guruh ustuni <code>group_name</code>.</p>
-                    </div>
-                    <div class="guide-item">
-                        <strong>3. Saqlang</strong>
-                        <p>Bu bo'lim ulanish ma'lumotlarini saqlaydi. Haqiqiy import uchun keyingi bosqichda shu sozlama orqali universitet bazasidan talabalar olinadi.</p>
-                    </div>
-                </div>
-            </aside>
-        </section>
-
-        <section class="admin-grid">
-            <article class="panel roster-panel">
-                <div class="panel-head">
-                    <h2>Universitet talabalar bazasi</h2>
-                    <span class="badge badge-idle">SQLite jadvali</span>
-                </div>
-                <div class="assign-box">
-                    <label class="field">
-                        <span>Talaba F.I.Sh.</span>
-                        <input id="newStudentName" type="text" placeholder="Abdullayev Bobur">
-                    </label>
-                    <label class="field">
-                        <span>Guruh</span>
-                        <input id="newStudentGroup" type="text" placeholder="KI-21">
-                    </label>
-                    <button id="addStudentBtn" class="btn btn-small">Bazaga qo'shish</button>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Talaba</th>
-                                <th>Guruh</th>
-                                <th>Izoh</th>
-                            </tr>
-                        </thead>
-                        <tbody id="studentRosterTable">
-                            {% for student in student_roster %}
-                            <tr>
-                                <td>{{ student.id }}</td>
-                                <td>{{ student.student_name }}</td>
-                                <td>{{ student.group_name or "Ko'rsatilmagan" }}</td>
-                                <td>{{ student.notes or "" }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4">Talabalar bazasi hozircha bo'sh.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div id="studentRoster" class="participant-list hidden-list">
-                    {% for student in student_roster %}
-                    <div class="participant-card">
-                        <div class="participant-title">{{ student.student_name }}</div>
-                        <div class="participant-meta">Guruh: <strong>{{ student.group_name or "Ko'rsatilmagan" }}</strong></div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </article>
-
-            <article class="panel">
-                <div class="panel-head">
-                    <h2>Default kameralar jadvali</h2>
-                    <span class="badge badge-live">Tayyor variantlar</span>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nomi</th>
-                                <th>Indeks</th>
-                                <th>Manba</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Webcam 0</td>
-                                <td>0</td>
-                                <td>Kompyuter yoki USB kamera</td>
-                            </tr>
-                            <tr>
-                                <td>Webcam 1</td>
-                                <td>1</td>
-                                <td>Ikkinchi kamera</td>
-                            </tr>
-                            <tr>
-                                <td>Webcam 2</td>
-                                <td>2</td>
-                                <td>Uchinchi kamera</td>
-                            </tr>
-                            <tr>
-                                <td>Ochiq RTSP test</td>
-                                <td>-1</td>
-                                <td><code>rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov</code></td>
-                            </tr>
-                            <tr>
-                                <td>Ochiq HLS test</td>
-                                <td>-1</td>
-                                <td><code>https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</code></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </article>
         </section>
     </div>
 

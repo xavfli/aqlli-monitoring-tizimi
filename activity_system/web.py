@@ -5,16 +5,17 @@ from flask import Flask, Response, jsonify, redirect, render_template, request, 
 from .config import BASE_DIR
 from .database import (
     add_student_roster,
+    delete_session,
     export_sessions_csv,
     fetch_camera_settings,
     fetch_recent_sessions,
+    fetch_session_by_id,
+    fetch_session_participant_results,
     fetch_student_latest_results,
     fetch_student_roster,
     fetch_summary,
-    fetch_university_db_settings,
     init_db,
     save_camera_settings,
-    save_university_db_settings,
 )
 from .monitor import ActivityMonitor
 
@@ -55,6 +56,33 @@ def create_app() -> Flask:
             status=monitor.get_status(),
         )
 
+    @app.route("/results")
+    def results_page():
+        sessions = fetch_recent_sessions(limit=100)
+        requested_id = request.args.get("session_id", type=int)
+        selected_session = None
+        if requested_id:
+            selected_session = fetch_session_by_id(requested_id)
+        if selected_session is None and sessions:
+            selected_session = sessions[0]
+        participant_results = (
+            fetch_session_participant_results(int(selected_session["id"]))
+            if selected_session
+            else []
+        )
+        return render_template(
+            "results.html",
+            sessions=sessions,
+            selected_session=selected_session,
+            participant_results=participant_results,
+            summary=fetch_summary(),
+        )
+
+    @app.post("/results/delete/<int:session_id>")
+    def delete_results_session(session_id: int):
+        delete_session(session_id)
+        return redirect(url_for("results_page"))
+
     @app.route("/admin")
     def admin_page():
         if not session.get("admin_logged_in"):
@@ -62,8 +90,6 @@ def create_app() -> Flask:
         return render_template(
             "admin.html",
             camera_settings=fetch_camera_settings(),
-            university_db_settings=fetch_university_db_settings(),
-            student_roster=fetch_student_roster(),
             status=monitor.get_status(),
         )
 
@@ -127,6 +153,12 @@ def create_app() -> Flask:
                 "ok": True,
                 "message": "Monitoring to'xtatildi va sessiya saqlandi",
                 "saved": saved_payload,
+                "results_url": url_for(
+                    "results_page",
+                    session_id=saved_payload.get("saved_session_id"),
+                )
+                if saved_payload and saved_payload.get("saved_session_id")
+                else url_for("results_page"),
                 "summary": fetch_summary(),
                 "sessions": fetch_recent_sessions(),
                 "student_results": fetch_student_latest_results(),
@@ -141,40 +173,28 @@ def create_app() -> Flask:
         payload = request.get_json(silent=True) or {}
         room_name = (payload.get("room_name") or "").strip()
         camera_source = (payload.get("camera_source") or "").strip()
+        zoom_link = (payload.get("zoom_link") or "").strip()
+        zoom_meeting_id = (payload.get("zoom_meeting_id") or "").strip()
+        zoom_passcode = (payload.get("zoom_passcode") or "").strip()
         notes = (payload.get("notes") or "").strip()
         try:
             camera_index = int(payload.get("camera_index", -1))
         except (TypeError, ValueError):
-            return jsonify({"ok": False, "message": "Kamera indeksi raqam bo'lishi kerak"}), 400
+            return jsonify({"ok": False, "message": "Virtual kamera indeksi raqam bo'lishi kerak"}), 400
         settings = save_camera_settings(
             room_name=room_name,
             camera_index=camera_index,
             camera_source=camera_source,
+            zoom_link=zoom_link,
+            zoom_meeting_id=zoom_meeting_id,
+            zoom_passcode=zoom_passcode,
             notes=notes,
         )
         return jsonify(
             {
                 "ok": True,
-                "message": "Kamera sozlamalari saqlandi",
+                "message": "Zoom manbasi saqlandi",
                 "camera_settings": settings,
-            }
-        )
-
-    @app.post("/api/admin/university-db")
-    def admin_university_db_settings():
-        if not session.get("admin_logged_in"):
-            return jsonify({"ok": False, "message": "Avval admin sifatida kiring"}), 401
-        payload = request.get_json(silent=True) or {}
-        if not (payload.get("student_table") or "").strip():
-            return jsonify({"ok": False, "message": "Talabalar jadvali nomini kiriting"}), 400
-        if not (payload.get("student_name_column") or "").strip():
-            return jsonify({"ok": False, "message": "Talaba F.I.Sh. ustunini kiriting"}), 400
-        settings = save_university_db_settings(payload)
-        return jsonify(
-            {
-                "ok": True,
-                "message": "Universitet bazasi sozlamalari saqlandi",
-                "university_db_settings": settings,
             }
         )
 

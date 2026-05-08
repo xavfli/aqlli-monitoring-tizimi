@@ -292,9 +292,14 @@ h1 {
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.1);
+    background: #29323b;
     color: #fff;
     font-size: 1rem;
+}
+
+.field select option {
+    background: #29323b;
+    color: #fff;
 }
 
 .field textarea {
@@ -616,6 +621,28 @@ h1 {
     border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+.result-session-card {
+    color: var(--text);
+    display: grid;
+    gap: 12px;
+}
+
+.result-session-active {
+    border-color: rgba(245, 158, 11, 0.55);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.result-session-link {
+    color: var(--text);
+    text-decoration: none;
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.16);
+    color: #ffd8d2;
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
 .single-stack {
     grid-template-columns: 1fr;
 }
@@ -695,6 +722,12 @@ h1 {
 
 .admin-form {
     margin-bottom: 0;
+}
+
+.button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .guide-list {

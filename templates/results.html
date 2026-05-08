@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natijalar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="topbar">
+            <a class="brand-link" href="{{ url_for('results_page') }}">Natijalar</a>
+            <nav class="topbar-actions">
+                <a class="btn btn-small" href="{{ url_for('events_page') }}">Live ballar</a>
+                <a class="btn btn-small" href="{{ url_for('results_page') }}">Natijalar</a>
+                <a class="btn btn-small" href="{{ url_for('admin_page') }}">Admin</a>
+                <a class="btn btn-small" href="{{ url_for('index') }}">Bosh sahifa</a>
+            </nav>
+        </header>
+
+        <section class="hero compact-hero">
+            <div class="hero-copy">
+                <p class="eyebrow">Saqlangan sessiyalar</p>
+                <div class="hero-title-block">
+                    <h1>Natijalar</h1>
+                    <div class="hero-accent-line"></div>
+                </div>
+                <p class="lead">
+                    Monitoring tugagandan keyin sessiyalar va talabalar ballari shu sahifada saqlanadi.
+                    Chapdagi sessiyani tanlang, o'ng tomonda o'sha dars natijalari chiqadi.
+                </p>
+            </div>
+            <div class="hero-side">
+                <div class="panel-head">
+                    <h2>Umumiy</h2>
+                    <span class="badge badge-live">{{ summary.total_sessions }} sessiya</span>
+                </div>
+                <div class="tech-stack">
+                    <div>
+                        <span>O'rtacha ball</span>
+                        <strong>{{ "%.1f"|format(summary.mean_score or 0) }}</strong>
+                    </div>
+                    <div>
+                        <span>Eng yuqori ball</span>
+                        <strong>{{ "%.1f"|format(summary.best_score or 0) }}</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-grid">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Sessiyalar</h2>
+                    <a class="btn btn-small" href="{{ url_for('export_csv') }}">CSV eksport</a>
+                </div>
+                <div class="participant-list">
+                    {% for session in sessions %}
+                    <div class="participant-card result-session-card {% if selected_session and session.id == selected_session.id %}result-session-active{% endif %}">
+                        <a class="result-session-link" href="{{ url_for('results_page', session_id=session.id) }}">
+                            <div class="participant-title">{{ session.session_name }}</div>
+                            <div class="participant-meta">Sessiya: <strong>{{ session.id }}</strong></div>
+                            <div class="participant-meta">Boshlanish: <strong>{{ session.started_at }}</strong></div>
+                            <div class="participant-meta">O'rtacha ball: <strong>{{ session.average_score }}</strong></div>
+                        </a>
+                        <form method="post" action="{{ url_for('delete_results_session', session_id=session.id) }}" onsubmit="return confirm('Sessiyani o\\'chirasizmi?');">
+                            <button class="btn btn-small btn-danger" type="submit">O'chirish</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="participant-empty">Hozircha saqlangan sessiya yo'q.</div>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Talabalar ballari</h2>
+                    {% if selected_session %}
+                    <span class="badge badge-idle">Sessiya {{ selected_session.id }}</span>
+                    {% endif %}
+                </div>
+                {% if selected_session %}
+                <div class="facts">
+                    <div><span>Dars nomi:</span> <strong>{{ selected_session.session_name }}</strong></div>
+                    <div><span>Vaqt:</span> <strong>{{ selected_session.started_at }} - {{ selected_session.ended_at }}</strong></div>
+                    <div><span>Mavjudlik:</span> <strong>{{ selected_session.presence_ratio }}%</strong></div>
+                    <div><span>Umumiy ball:</span> <strong>{{ selected_session.average_score }}</strong></div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Talaba</th>
+                                <th>O'rtacha ball</th>
+                                <th>Maksimal ball</th>
+                                <th>Mavjudlik</th>
+                                <th>Telefon</th>
+                                <th>Savol</th>
+                                <th>Uyquchanlik</th>
+                                <th>Chalg'ish</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in participant_results %}
+                            <tr>
+                                <td>{{ row.student_name or "Ism aniqlanmadi" }}</td>
+                                <td>{{ row.average_score }}</td>
+                                <td>{{ row.max_score }}</td>
+                                <td>{{ row.presence_ratio }}%</td>
+                                <td>{{ row.phone_suspect }}</td>
+                                <td>{{ row.question_gesture }}</td>
+                                <td>{{ row.drowsy_suspect }}</td>
+                                <td>{{ row.looking_away }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8">Bu sessiyada talabalar ballari saqlanmagan. Zoom oynasida ism ko'rinishi va OCR tayyor bo'lishi kerak.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="participant-empty">Sessiya tanlanmagan.</div>
+                {% endif %}
+            </article>
+        </section>
+    </div>
+</body>
+</html>

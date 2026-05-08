@@ -7,13 +7,17 @@ from .config import DATA_DIR, DATABASE_PATH, EXPORT_DIR
 USE_MEMORY_DB = False
 MEMORY_SESSIONS: list[dict] = []
 MEMORY_STUDENT_RESULTS: list[dict] = []
+MEMORY_PARTICIPANT_RESULTS: list[dict] = []
 MEMORY_STUDENT_ROSTER: list[dict] = []
 MEMORY_CAMERA_SETTINGS: dict = {
     "id": 1,
-    "room_name": "E 102 xona",
+    "room_name": "Zoom demo darsi",
     "camera_index": -1,
-    "camera_source": "",
-    "notes": "",
+    "camera_source": "screen:1",
+    "zoom_link": "https://us05web.zoom.us/j/5336068317?pwd=i7Jcq4200iSXNHWvKpqEIW3BVsgAat.1",
+    "zoom_meeting_id": "533 606 8317",
+    "zoom_passcode": "1Xkpny",
+    "notes": "Zoom oynasi asosiy monitorda ochiladi.",
 }
 MEMORY_UNIVERSITY_DB_SETTINGS: dict = {
     "id": 1,
@@ -65,6 +69,18 @@ def init_db() -> None:
                 )
                 """
             )
+            session_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(session_results)").fetchall()
+            }
+            if "average_detected_faces" not in session_columns:
+                conn.execute(
+                    "ALTER TABLE session_results ADD COLUMN average_detected_faces REAL NOT NULL DEFAULT 0"
+                )
+            if "max_detected_faces" not in session_columns:
+                conn.execute(
+                    "ALTER TABLE session_results ADD COLUMN max_detected_faces INTEGER NOT NULL DEFAULT 0"
+                )
             conn.execute(
                 """
             CREATE TABLE IF NOT EXISTS student_latest_results (
@@ -75,6 +91,25 @@ def init_db() -> None:
                 average_score REAL NOT NULL,
                 max_score REAL NOT NULL,
                 presence_ratio REAL NOT NULL,
+                phone_suspect INTEGER NOT NULL DEFAULT 0,
+                question_gesture INTEGER NOT NULL DEFAULT 0,
+                drowsy_suspect INTEGER NOT NULL DEFAULT 0,
+                looking_away INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            )
+                """
+            )
+            conn.execute(
+                """
+            CREATE TABLE IF NOT EXISTS session_participant_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                participant_id TEXT NOT NULL,
+                student_name TEXT NOT NULL DEFAULT '',
+                average_score REAL NOT NULL,
+                max_score REAL NOT NULL,
+                presence_ratio REAL NOT NULL,
+                frames INTEGER NOT NULL DEFAULT 0,
                 phone_suspect INTEGER NOT NULL DEFAULT 0,
                 question_gesture INTEGER NOT NULL DEFAULT 0,
                 drowsy_suspect INTEGER NOT NULL DEFAULT 0,
@@ -97,14 +132,27 @@ def init_db() -> None:
                 """
             CREATE TABLE IF NOT EXISTS camera_settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
-                room_name TEXT NOT NULL DEFAULT 'E 102 xona',
+                room_name TEXT NOT NULL DEFAULT 'Zoom darsi',
                 camera_index INTEGER NOT NULL DEFAULT -1,
                 camera_source TEXT NOT NULL DEFAULT '',
+                zoom_link TEXT NOT NULL DEFAULT '',
+                zoom_meeting_id TEXT NOT NULL DEFAULT '',
+                zoom_passcode TEXT NOT NULL DEFAULT '',
                 notes TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
                 """
             )
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(camera_settings)").fetchall()
+            }
+            if "zoom_link" not in columns:
+                conn.execute("ALTER TABLE camera_settings ADD COLUMN zoom_link TEXT NOT NULL DEFAULT ''")
+            if "zoom_meeting_id" not in columns:
+                conn.execute("ALTER TABLE camera_settings ADD COLUMN zoom_meeting_id TEXT NOT NULL DEFAULT ''")
+            if "zoom_passcode" not in columns:
+                conn.execute("ALTER TABLE camera_settings ADD COLUMN zoom_passcode TEXT NOT NULL DEFAULT ''")
             conn.execute(
                 """
             INSERT OR IGNORE INTO camera_settings (
@@ -112,9 +160,54 @@ def init_db() -> None:
                 room_name,
                 camera_index,
                 camera_source,
+                zoom_link,
+                zoom_meeting_id,
+                zoom_passcode,
                 notes
             )
-            VALUES (1, 'E 102 xona', -1, '', '')
+            VALUES (
+                1,
+                'Zoom demo darsi',
+                -1,
+                'screen:1',
+                'https://us05web.zoom.us/j/5336068317?pwd=i7Jcq4200iSXNHWvKpqEIW3BVsgAat.1',
+                '533 606 8317',
+                '1Xkpny',
+                'Zoom oynasi asosiy monitorda ochiladi.'
+            )
+                """
+            )
+            conn.execute(
+                """
+            UPDATE camera_settings
+            SET
+                room_name = 'Zoom demo darsi',
+                camera_index = -1,
+                camera_source = 'screen:1',
+                zoom_link = 'https://us05web.zoom.us/j/5336068317?pwd=i7Jcq4200iSXNHWvKpqEIW3BVsgAat.1',
+                zoom_meeting_id = '533 606 8317',
+                zoom_passcode = '1Xkpny',
+                notes = 'Zoom oynasi asosiy monitorda ochiladi.',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = 1
+              AND COALESCE(zoom_link, '') = ''
+                """
+            )
+            conn.execute(
+                """
+            UPDATE camera_settings
+            SET
+                room_name = 'Zoom darsi',
+                camera_index = -1,
+                camera_source = 'screen:1',
+                zoom_link = '',
+                zoom_meeting_id = '',
+                zoom_passcode = '',
+                notes = 'Zoom oynasi asosiy monitorda ochiladi.',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = 1
+              AND room_name = 'E 102 xona'
+              AND camera_source = ''
                 """
             )
             conn.execute(
@@ -149,8 +242,188 @@ def init_db() -> None:
             VALUES (1, 'sqlite', 'students', 'student_id', 'full_name', 'group_name')
                 """
             )
+            seed_default_demo_data(conn)
     except sqlite3.Error:
         USE_MEMORY_DB = True
+
+
+def seed_default_demo_data(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        UPDATE camera_settings
+        SET room_name = 'Zoom demo darsi'
+        WHERE room_name LIKE '%Boburbek Nuriddinov%'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE session_participant_results
+        SET student_name = 'Talaba 1'
+        WHERE student_name = 'Boburbek Nuriddinov'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE session_participant_results
+        SET student_name = 'Talaba 2'
+        WHERE student_name = 'Asad'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE session_participant_results
+        SET student_name = 'Talaba 3'
+        WHERE student_name = 'Madina'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE student_latest_results
+        SET student_name = 'Talaba 1'
+        WHERE student_name = 'Boburbek Nuriddinov'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE student_latest_results
+        SET student_name = 'Talaba 2'
+        WHERE student_name = 'Asad'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE student_latest_results
+        SET student_name = 'Talaba 3'
+        WHERE student_name = 'Madina'
+        """
+    )
+    existing = conn.execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM session_participant_results
+        """
+    ).fetchone()
+    if existing and int(existing["total"]) > 0:
+        return
+
+    cursor = conn.execute(
+        """
+        INSERT INTO session_results (
+            session_name,
+            started_at,
+            ended_at,
+            duration_seconds,
+            total_frames,
+            face_frames,
+            average_detected_faces,
+            max_detected_faces,
+            absence_frames,
+            presence_ratio,
+            attention_ratio,
+            movement_ratio,
+            average_score,
+            max_score,
+            notes
+        )
+        VALUES (
+            'Sessiya 1 - Zoom darsi',
+            '2026-05-08 14:00:00',
+            '2026-05-08 14:45:00',
+            2700,
+            1250,
+            1114,
+            2.4,
+            3,
+            136,
+            89.12,
+            76.40,
+            58.75,
+            78.60,
+            94.20,
+            'Default demo natija'
+        )
+        """
+    )
+    session_id = int(cursor.lastrowid)
+    rows = [
+        ("Talaba 1", 84.5, 94.2, 91.0, 0, 3, 0, 1),
+        ("Talaba 2", 76.8, 88.4, 86.5, 1, 1, 0, 2),
+        ("Talaba 3", 72.4, 83.0, 78.2, 0, 2, 1, 1),
+    ]
+    for index, row in enumerate(rows, start=1):
+        conn.execute(
+            """
+            INSERT INTO session_participant_results (
+                session_id,
+                participant_id,
+                student_name,
+                average_score,
+                max_score,
+                presence_ratio,
+                frames,
+                phone_suspect,
+                question_gesture,
+                drowsy_suspect,
+                looking_away,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '2026-05-08 14:45:00')
+            """,
+            (
+                session_id,
+                f"Tinglovchi {index}",
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                380 + (index * 20),
+                row[4],
+                row[5],
+                row[6],
+                row[7],
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO student_latest_results (
+                student_name,
+                session_id,
+                participant_id,
+                average_score,
+                max_score,
+                presence_ratio,
+                phone_suspect,
+                question_gesture,
+                drowsy_suspect,
+                looking_away,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '2026-05-08 14:45:00')
+            ON CONFLICT(student_name) DO UPDATE SET
+                session_id=excluded.session_id,
+                participant_id=excluded.participant_id,
+                average_score=excluded.average_score,
+                max_score=excluded.max_score,
+                presence_ratio=excluded.presence_ratio,
+                phone_suspect=excluded.phone_suspect,
+                question_gesture=excluded.question_gesture,
+                drowsy_suspect=excluded.drowsy_suspect,
+                looking_away=excluded.looking_away,
+                updated_at=excluded.updated_at
+            """,
+            (
+                row[0],
+                session_id,
+                f"Tinglovchi {index}",
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                row[5],
+                row[6],
+                row[7],
+            ),
+        )
 
 
 def insert_session(session_data: dict) -> int:
@@ -322,6 +595,73 @@ def save_student_latest_results(session_id: int, participant_summary: list[dict]
             )
 
 
+def save_session_participant_results(session_id: int, participant_summary: list[dict], updated_at: str) -> None:
+    rows = [row for row in participant_summary if row.get("assigned_name") or row.get("display_name")]
+    if USE_MEMORY_DB:
+        global MEMORY_PARTICIPANT_RESULTS
+        MEMORY_PARTICIPANT_RESULTS = [
+            row for row in MEMORY_PARTICIPANT_RESULTS if row.get("session_id") != session_id
+        ]
+        for row in rows:
+            event_counts = row.get("event_counts", {})
+            MEMORY_PARTICIPANT_RESULTS.append(
+                {
+                    "id": len(MEMORY_PARTICIPANT_RESULTS) + 1,
+                    "session_id": session_id,
+                    "participant_id": row.get("participant_id", ""),
+                    "student_name": row.get("assigned_name") or row.get("display_name", ""),
+                    "average_score": row.get("average_score", 0),
+                    "max_score": row.get("max_score", 0),
+                    "presence_ratio": row.get("presence_ratio", 0),
+                    "frames": row.get("frames", 0),
+                    "phone_suspect": event_counts.get("phone_suspect", 0),
+                    "question_gesture": event_counts.get("question_gesture", 0),
+                    "drowsy_suspect": event_counts.get("drowsy_suspect", 0),
+                    "looking_away": event_counts.get("looking_away", 0),
+                    "updated_at": updated_at,
+                }
+            )
+        return
+
+    with get_connection() as conn:
+        conn.execute("DELETE FROM session_participant_results WHERE session_id = ?", (session_id,))
+        for row in rows:
+            event_counts = row.get("event_counts", {})
+            conn.execute(
+                """
+                INSERT INTO session_participant_results (
+                    session_id,
+                    participant_id,
+                    student_name,
+                    average_score,
+                    max_score,
+                    presence_ratio,
+                    frames,
+                    phone_suspect,
+                    question_gesture,
+                    drowsy_suspect,
+                    looking_away,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    row.get("participant_id", ""),
+                    row.get("assigned_name") or row.get("display_name", ""),
+                    row.get("average_score", 0),
+                    row.get("max_score", 0),
+                    row.get("presence_ratio", 0),
+                    row.get("frames", 0),
+                    event_counts.get("phone_suspect", 0),
+                    event_counts.get("question_gesture", 0),
+                    event_counts.get("drowsy_suspect", 0),
+                    event_counts.get("looking_away", 0),
+                    updated_at,
+                ),
+            )
+
+
 def fetch_student_latest_results(limit: int = 100) -> list[dict]:
     if USE_MEMORY_DB:
         rows = sorted(MEMORY_STUDENT_RESULTS, key=lambda row: row.get("updated_at", ""), reverse=True)
@@ -338,6 +678,64 @@ def fetch_student_latest_results(limit: int = 100) -> list[dict]:
             (limit,),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def fetch_session_by_id(session_id: int) -> dict | None:
+    if USE_MEMORY_DB:
+        for row in MEMORY_SESSIONS:
+            if row.get("id") == session_id:
+                return dict(row)
+        return None
+
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM session_results
+            WHERE id = ?
+            """,
+            (session_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def fetch_session_participant_results(session_id: int) -> list[dict]:
+    if USE_MEMORY_DB:
+        return [
+            dict(row)
+            for row in MEMORY_PARTICIPANT_RESULTS
+            if row.get("session_id") == session_id
+        ]
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM session_participant_results
+            WHERE session_id = ?
+            ORDER BY average_score DESC, student_name ASC
+            """,
+            (session_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_session(session_id: int) -> None:
+    if USE_MEMORY_DB:
+        global MEMORY_SESSIONS, MEMORY_PARTICIPANT_RESULTS, MEMORY_STUDENT_RESULTS
+        MEMORY_SESSIONS = [row for row in MEMORY_SESSIONS if row.get("id") != session_id]
+        MEMORY_PARTICIPANT_RESULTS = [
+            row for row in MEMORY_PARTICIPANT_RESULTS if row.get("session_id") != session_id
+        ]
+        MEMORY_STUDENT_RESULTS = [
+            row for row in MEMORY_STUDENT_RESULTS if row.get("session_id") != session_id
+        ]
+        return
+
+    with get_connection() as conn:
+        conn.execute("DELETE FROM session_participant_results WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM student_latest_results WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM session_results WHERE id = ?", (session_id,))
 
 
 def add_student_roster(student_name: str, group_name: str = "", notes: str = "") -> dict:
@@ -410,10 +808,13 @@ def fetch_camera_settings() -> dict:
         ).fetchone()
     return dict(row) if row else {
         "id": 1,
-        "room_name": "E 102 xona",
+        "room_name": "Zoom darsi",
         "camera_index": -1,
-        "camera_source": "",
-        "notes": "",
+        "camera_source": "screen:1",
+        "zoom_link": "",
+        "zoom_meeting_id": "",
+        "zoom_passcode": "",
+        "notes": "Zoom oynasi asosiy monitorda ochiladi.",
     }
 
 
@@ -421,10 +822,16 @@ def save_camera_settings(
     room_name: str,
     camera_index: int,
     camera_source: str = "",
+    zoom_link: str = "",
+    zoom_meeting_id: str = "",
+    zoom_passcode: str = "",
     notes: str = "",
 ) -> dict:
-    room_name = room_name.strip() or "E 102 xona"
+    room_name = room_name.strip() or "Zoom darsi"
     camera_source = camera_source.strip()
+    zoom_link = zoom_link.strip()
+    zoom_meeting_id = zoom_meeting_id.strip()
+    zoom_passcode = zoom_passcode.strip()
     notes = notes.strip()
     if USE_MEMORY_DB:
         MEMORY_CAMERA_SETTINGS.update(
@@ -432,6 +839,9 @@ def save_camera_settings(
                 "room_name": room_name,
                 "camera_index": camera_index,
                 "camera_source": camera_source,
+                "zoom_link": zoom_link,
+                "zoom_meeting_id": zoom_meeting_id,
+                "zoom_passcode": zoom_passcode,
                 "notes": notes,
             }
         )
@@ -445,18 +855,24 @@ def save_camera_settings(
                 room_name,
                 camera_index,
                 camera_source,
+                zoom_link,
+                zoom_meeting_id,
+                zoom_passcode,
                 notes,
                 updated_at
             )
-            VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(id) DO UPDATE SET
                 room_name=excluded.room_name,
                 camera_index=excluded.camera_index,
                 camera_source=excluded.camera_source,
+                zoom_link=excluded.zoom_link,
+                zoom_meeting_id=excluded.zoom_meeting_id,
+                zoom_passcode=excluded.zoom_passcode,
                 notes=excluded.notes,
                 updated_at=CURRENT_TIMESTAMP
             """,
-            (room_name, camera_index, camera_source, notes),
+            (room_name, camera_index, camera_source, zoom_link, zoom_meeting_id, zoom_passcode, notes),
         )
     return fetch_camera_settings()
 
